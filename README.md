@@ -155,13 +155,13 @@ git push
 #### 1. Antes de hacer Pull Request
 
 ```bash
-# Actualizar main local
-git checkout main
-git pull origin main
+# Actualizar main(core) local
+git checkout core
+git pull origin core
 
 # Volver a tu rama y rebasear
 git checkout funcionalidad/mi-nueva-funcionalidad
-git rebase main
+git rebase core
 
 # Si hay conflictos, resolverlos y continuar
 git add .
@@ -174,7 +174,7 @@ git push --force-with-lease
 #### 2. Crear Pull Request
 
 1. Ve al repositorio en GitHub
-2. Crea un Pull Request desde tu rama hacia `main`
+2. Crea un Pull Request desde tu rama hacia `core`
 3. Describe los cambios realizados
 4. Solicita revisión del equipo
 5. Espera aprobación antes de hacer merge
@@ -208,10 +208,10 @@ git push origin --delete funcionalidad/mi-funcionalidad
 
 ### Reglas de Colaboración
 
-1. **Nunca hacer push directo a `main`**
+1. **Nunca hacer push directo a `core`**
 2. **Siempre crear Pull Request para revisión**
 3. **Escribir commits descriptivos**
-4. **Mantener las ramas actualizadas con `main`**
+4. **Mantener las ramas actualizadas con `core`**
 5. **Eliminar ramas después del merge**
 6. **Comunicar cambios importantes al equipo**
 
