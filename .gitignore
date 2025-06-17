@@ -1,7 +1,18 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
+# === ARCHIVOS GENERALES ===
+.DS_Store
+.vscode/
+.idea/
+*.log
+*.tmp
+*.temp
+
+# === FRONTEND (Next.js / Node.js) ===
+
 # dependencies
 /node_modules
+node_modules/
 
 # next.js
 /.next/
@@ -9,6 +20,8 @@
 
 # production
 /build
+build/
+dist/
 
 # debug
 npm-debug.log*
@@ -18,6 +31,10 @@ yarn-error.log*
 
 # env files
 .env*
+.env
+.env.local
+.env.production
+.env.development
 
 # vercel
 .vercel
@@ -25,3 +42,142 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# ESLint cache
+.eslintcache
+
+# Coverage
+coverage/
+*.lcov
+
+# === BACKEND (Python / FastAPI) ===
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+develop-eggs/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+cover/
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+backend/venv/
+backend/.venv
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# pytype static type analyzer
+.pytype/
+
+# === BASE DE DATOS ===
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+mvc_proyecto.db
+backend/mvc_proyecto.db
+
+# PostgreSQL
+postgresql/
+
+# === DOCKER ===
+docker-compose.override.yml
+
+# === ARCHIVOS TEMPORALES ===
+tmp/
+temp/
+.tmp/
+
+# === SISTEMA OPERATIVO ===
+# macOS
+.AppleDouble
+.LSOverride
+Icon
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# Linux
+*~
+
+# === EDITORES ===
+# Vim
+*.swp
+*.swo
+
+# Sublime Text
+*.sublime-workspace
+*.sublime-project
+
+# === CERTIFICADOS Y CLAVES ===
+*.pem
+*.key
+*.crt
+*.csr
+
+# === ARCHIVOS ESPECÍFICOS DEL PROYECTO ===
+uploads/
+media/
+static_files/

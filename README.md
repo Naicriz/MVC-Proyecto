@@ -1,15 +1,21 @@
 # Proyecto MVC - Sistemas de Información
 
-Proyecto universitario desarrollado en equipo utilizando Next.js, TypeScript y Tailwind CSS.
+Proyecto universitario Full-Stack desarrollado en equipo utilizando:
+
+- **Frontend**: Next.js, TypeScript y Tailwind CSS
+- **Backend**: FastAPI, SQLAlchemy y PostgreSQL
 
 ## 🚀 Instalación y Configuración
 
 ### Prerrequisitos
 
 - Node.js (versión 18 o superior)
+- Python (versión 3.11 o superior)
 - npm o pnpm
 
 ### Instalación de Dependencias
+
+#### Frontend (Next.js)
 
 1. Clona el repositorio:
 
@@ -28,24 +34,92 @@ npm install
 pnpm install
 ```
 
-### Iniciar el Servidor de Desarrollo
+#### Backend (FastAPI)
+
+1. Ve a la carpeta del backend:
 
 ```bash
-# Con npm
+cd backend
+```
+
+2. Crea un entorno virtual de Python:
+
+```bash
+python -m venv venv
+
+# Activar entorno virtual
+# En macOS/Linux:
+source venv/bin/activate
+# En Windows:
+venv\Scripts\activate
+```
+
+3. Instala las dependencias:
+
+```bash
+pip install -r requirements.txt
+```
+
+4. Configura las variables de entorno:
+
+```bash
+cp .env.example .env
+# Edita el archivo .env con tu configuración
+```
+
+### Iniciar los Servidores
+
+#### Frontend (puerto 3000)
+
+```bash
+# Desde la raíz del proyecto
 npm run dev
 
 # O con pnpm
 pnpm dev
 ```
 
-El servidor estará disponible en `http://localhost:3000`
+#### Backend (puerto 8000)
+
+```bash
+# Desde la carpeta backend (con el entorno virtual activado)
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+#### Con Docker (Ambos servicios)
+
+```bash
+# Desde la raíz del proyecto
+docker-compose up --build
+```
+
+**URLs disponibles:**
+
+- Frontend: http://localhost:3000
+- Backend API: http://localhost:8000
+- Documentación API: http://localhost:8000/docs
+- Base de datos (Adminer opcional; Pueden verlo con cualquier programa)\: http://localhost:8080
 
 ## 🛠️ Scripts Disponibles
 
-- `npm run dev` - Inicia el servidor de desarrollo
+### Frontend
+
+- `npm run dev` - Inicia el servidor de desarrollo del frontend
 - `npm run build` - Construye la aplicación para producción
 - `npm run start` - Inicia el servidor de producción
 - `npm run lint` - Ejecuta el linter
+
+### Backend
+
+- `uvicorn app.main:app --reload` - Inicia el servidor de desarrollo del backend
+- `python -m pytest` - Ejecuta las pruebas
+- `alembic upgrade head` - Ejecuta migraciones de base de datos
+
+### Docker
+
+- `docker-compose up` - Inicia todos los servicios
+- `docker-compose down` - Detiene todos los servicios
+- `docker-compose build` - Reconstruye las imágenes
 
 ## 🌿 Flujo de Trabajo con Git
 
@@ -226,16 +300,30 @@ git push origin --delete funcionalidad/mi-funcionalidad
 
 ```
 MVC-Proyecto/
-├── app/                    # Páginas y rutas de Next.js
-│   ├── admin/             # Páginas de administración
-│   ├── cotizacion/        # Páginas de cotización
-│   └── configurar/        # Páginas de configuración
-├── components/            # Componentes reutilizables
-│   └── ui/               # Componentes de UI
-├── hooks/                # Hooks personalizados
-├── lib/                  # Utilidades y helpers
-├── public/               # Archivos estáticos
-└── styles/               # Estilos globales
+├── frontend/              # Aplicación Next.js
+│   ├── app/              # Páginas y rutas de Next.js
+│   │   ├── admin/        # Páginas de administración
+│   │   ├── cotizacion/   # Páginas de cotización
+│   │   └── configurar/   # Páginas de configuración
+│   ├── components/       # Componentes reutilizables
+│   │   └── ui/          # Componentes de UI
+│   ├── hooks/           # Hooks personalizados
+│   ├── lib/             # Utilidades y helpers
+│   ├── public/          # Archivos estáticos
+│   └── styles/          # Estilos globales
+├── backend/              # API FastAPI
+│   ├── app/
+│   │   ├── main.py      # Aplicación principal
+│   │   ├── models/      # Modelos de base de datos
+│   │   ├── routes/      # Endpoints de la API
+│   │   ├── schemas/     # Esquemas Pydantic
+│   │   ├── services/    # Lógica de negocio
+│   │   └── database/    # Configuración de BD
+│   ├── requirements.txt # Dependencias Python
+│   └── Dockerfile       # Imagen Docker del backend
+├── docker-compose.yml    # Orquestación de servicios
+├── README.md            # Documentación principal
+└── GUIA-DESARROLLO.md   # Guía para principiantes
 ```
 
 ## 🛡️ Buenas Prácticas
