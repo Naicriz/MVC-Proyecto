@@ -1,9 +1,10 @@
-from pydantic import BaseModel, EmailStr
+from sqlmodel import SQLModel
+from pydantic import EmailStr
 from typing import Optional
 from datetime import datetime
 
 # Esquemas de Usuario
-class UsuarioBase(BaseModel):
+class UsuarioBase(SQLModel):
     email: EmailStr
     nombre: str
     apellido: str
@@ -12,32 +13,36 @@ class UsuarioBase(BaseModel):
 class UsuarioCreate(UsuarioBase):
     password: str
 
+class UsuarioUpdate(SQLModel):
+    email: Optional[EmailStr] = None
+    nombre: Optional[str] = None
+    apellido: Optional[str] = None
+    telefono: Optional[str] = None
+    is_active: Optional[bool] = None
+
 class UsuarioResponse(UsuarioBase):
     id: int
     is_active: bool
     is_admin: bool
     created_at: datetime
-    
-    class Config:
-        from_attributes = True
 
 # Esquemas de Autenticación
-class Token(BaseModel):
+class Token(SQLModel):
     access_token: str
     token_type: str
 
-class TokenData(BaseModel):
+class TokenData(SQLModel):
     email: Optional[str] = None
 
-class LoginRequest(BaseModel):
+class LoginRequest(SQLModel):
     email: EmailStr
     password: str
 
 # Esquemas de respuesta general
-class MessageResponse(BaseModel):
+class MessageResponse(SQLModel):
     message: str
 
-class HealthResponse(BaseModel):
+class HealthResponse(SQLModel):
     status: str
     message: str
     timestamp: datetime

@@ -1,1 +1,1 @@
-from .models import Usuario, Cotizacion
+from .models import Usuario

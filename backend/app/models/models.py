@@ -1,17 +1,20 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text
-from sqlalchemy.sql import func
-from app.database.database import Base
+from sqlmodel import SQLModel, Field, Relationship
+from typing import Optional, List
+from datetime import datetime
 
-class Usuario(Base):
+class Usuario(SQLModel, table=True):
     __tablename__ = "usuarios"
     
-    id = Column(Integer, primary_key=True, index=True)
-    email = Column(String, unique=True, index=True, nullable=False)
-    nombre = Column(String, nullable=False)
-    apellido = Column(String, nullable=False)
-    telefono = Column(String, nullable=True)
-    hashed_password = Column(String, nullable=False)
-    is_active = Column(Boolean, default=True)
-    is_admin = Column(Boolean, default=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    id: Optional[int] = Field(default=None, primary_key=True)
+    email: str = Field(index=True, unique=True)
+    nombre: str = Field(max_length=50)
+    apellido: str = Field(max_length=50)
+    telefono: Optional[str] = Field(max_length=15)
+    hashed_password: str = Field(max_length=255)
+    is_active: bool = Field(default=True)
+    is_admin: bool = Field(default=False)
+    created_at: datetime = Field(default_factory=datetime.now)
+    updated_at: Optional[datetime] =  Field(default_factory=datetime.now, nullable=True)
+
+    # Relación con Cotizacion
+    # cotizaciones: List["Cotizacion"] = Relationship(back_populates="usuario")
