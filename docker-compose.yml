@@ -9,11 +9,13 @@ services:
     environment:
       - DATABASE_URL=postgresql://postgres:password@db:5432/mvc_proyecto_db
       - SECRET_KEY=tu_clave_secreta_para_produccion
+      - DEBUG=true
     depends_on:
       - db
     volumes:
       - ./backend:/app
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    # Usar FastAPI CLI para desarrollo
+    command: fastapi dev app/main.py --host 0.0.0.0 --port 8000
 
   # Frontend Next.js
   frontend:
@@ -29,7 +31,7 @@ services:
 
   # Base de datos PostgreSQL
   db:
-    image: postgres:15
+    image: postgres:16
     environment:
       - POSTGRES_DB=mvc_proyecto_db
       - POSTGRES_USER=postgres
@@ -38,6 +40,20 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # Redis para caché y sesiones
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
 
   # Adminer (opcional) - Interface web para la BD
   adminer:
@@ -49,3 +65,4 @@ services:
 
 volumes:
   postgres_data:
+  redis_data:

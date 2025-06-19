@@ -1,6 +1,6 @@
 from pydantic_settings import BaseSettings
 from typing import List
-import os
+# import os
 
 class Settings(BaseSettings):
     # Base de datos
@@ -22,9 +22,7 @@ class Settings(BaseSettings):
         "http://127.0.0.1:3000",
     ]
     
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
+    # class Config:
+    #     env_file = ".env.example"
+    #     case_sensitive = True
 
-# Crear instancia global de configuración
-settings = Settings()

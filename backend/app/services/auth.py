@@ -1,8 +1,9 @@
+from typing import Optional
+from datetime import datetime, timedelta
 from passlib.context import CryptContext
 from jose import JWTError, jwt
-from datetime import datetime, timedelta
-from typing import Optional
-from app.config import settings
+
+from app import settings
 
 # Configuración para el hash de passwords
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")

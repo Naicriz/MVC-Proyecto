@@ -1,10 +1,12 @@
+from typing import List
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session
-from typing import List
+
 from app.database.database import get_db
-from app.schemas.schemas import  UsuarioResponse
 from app.services.database_service import UsuarioService
-from app.routes.auth import get_current_user
+from app.schemas.schemas import  UsuarioResponse
+from app.endpoints.auth import get_current_user
 
 router = APIRouter(prefix="/usuarios", tags=["Usuarios"])
 

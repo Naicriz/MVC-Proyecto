@@ -3,15 +3,16 @@
 Proyecto universitario Full-Stack desarrollado en equipo utilizando:
 
 - **Frontend**: Next.js, TypeScript y Tailwind CSS
-- **Backend**: FastAPI, SQLAlchemy y PostgreSQL
+- **Backend**: FastAPI, SQLModel y PostgreSQL
 
 ## 🚀 Instalación y Configuración
 
 ### Prerrequisitos
 
 - Node.js (versión 18 o superior)
-- Python (versión 3.11 o superior)
+- Python (versión 3.13 o superior)
 - npm o pnpm
+- Docker y Docker Compose (opcional)
 
 ### Instalación de Dependencias
 
@@ -42,9 +43,29 @@ pnpm install
 cd backend
 ```
 
-2. Crea un entorno virtual de Python:
+2. **Opción A: Con Poetry (Recomendado para desarrollo)**
 
 ```bash
+# Instalar Poetry si no lo tienes
+curl -sSL https://install.python-poetry.org | python3 -
+
+# O con pip
+pip install poetry
+
+# Instalar dependencias del proyecto
+poetry install
+
+# Activar el entorno virtual de Poetry
+poetry shell
+
+# O ejecutar comandos con Poetry sin activar el shell
+poetry run uvicorn app.main:app --reload
+```
+
+**Opción B: Con pip y venv (Tradicional)**
+
+```bash
+# Crea un entorno virtual de Python
 python -m venv venv
 
 # Activar entorno virtual
@@ -52,15 +73,12 @@ python -m venv venv
 source venv/bin/activate
 # En Windows:
 venv\Scripts\activate
-```
 
-3. Instala las dependencias:
-
-```bash
+# Instalar dependencias
 pip install -r requirements.txt
 ```
 
-4. Configura las variables de entorno:
+3. Configura las variables de entorno:
 
 ```bash
 cp .env.example .env
@@ -81,9 +99,28 @@ pnpm dev
 
 #### Backend (puerto 8000)
 
+**Con Poetry:**
+
+```bash
+# Desde la carpeta backend
+poetry run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+
+# O con FastAPI CLI (más moderno)
+poetry run fastapi dev app/main.py
+
+# O si tienes el shell activado
+poetry shell
+fastapi dev app/main.py
+```
+
+**Con pip/venv:**
+
 ```bash
 # Desde la carpeta backend (con el entorno virtual activado)
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+
+# O con FastAPI CLI
+fastapi dev app/main.py
 ```
 
 #### Con Docker (Ambos servicios)
@@ -98,7 +135,9 @@ docker-compose up --build
 - Frontend: http://localhost:3000
 - Backend API: http://localhost:8000
 - Documentación API: http://localhost:8000/docs
-- Base de datos (Adminer opcional; Pueden verlo con cualquier programa)\: http://localhost:8080
+- Base de datos PostgreSQL: localhost:5432
+- Redis: localhost:6379
+- Adminer (DB Interface): http://localhost:8080
 
 ## 🛠️ Scripts Disponibles
 
@@ -111,6 +150,21 @@ docker-compose up --build
 
 ### Backend
 
+*[!] Esto es a elección pueden usar Poetry, pip/venv o Docker.*
+
+**Con Poetry:**
+
+- `poetry run fastapi dev app/main.py` - Inicia el servidor de desarrollo (recomendado)
+- `poetry run uvicorn app.main:app --reload` - Inicia el servidor de desarrollo (alternativo)
+- `poetry run python -m pytest` - Ejecuta las pruebas
+- `poetry add <paquete>` - Agregar nueva dependencia
+- `poetry add --group dev <paquete>` - Agregar dependencia de desarrollo
+- `poetry show` - Ver dependencias instaladas
+- `poetry update` - Actualizar dependencias
+
+**Con pip/venv:**
+
+- `fastapi dev app/main.py` - Inicia el servidor de desarrollo (recomendado)
 - `uvicorn app.main:app --reload` - Inicia el servidor de desarrollo del backend
 - `python -m pytest` - Ejecuta las pruebas
 - `alembic upgrade head` - Ejecuta migraciones de base de datos
@@ -315,11 +369,12 @@ MVC-Proyecto/
 │   ├── app/
 │   │   ├── main.py      # Aplicación principal
 │   │   ├── models/      # Modelos de base de datos
-│   │   ├── routes/      # Endpoints de la API
+│   │   ├── endpoints/   # Endpoints de la API
 │   │   ├── schemas/     # Esquemas Pydantic
 │   │   ├── services/    # Lógica de negocio
 │   │   └── database/    # Configuración de BD
-│   ├── requirements.txt # Dependencias Python
+│   ├── pyproject.toml   # Configuración Poetry
+│   ├── requirements.txt # Dependencias Python (fallback)
 │   └── Dockerfile       # Imagen Docker del backend
 ├── docker-compose.yml    # Orquestación de servicios
 ├── README.md            # Documentación principal

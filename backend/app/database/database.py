@@ -1,5 +1,5 @@
 from sqlmodel import create_engine, SQLModel, Session
-from app.config import settings
+from app import settings
 
 # Crear el motor de base de datos
 engine = create_engine(
@@ -8,17 +8,17 @@ engine = create_engine(
     echo=settings.DEBUG
 )
 
-# Función para crear todas las tablas
-def create_db_and_tables():
+def init_db():
+    """
+    Inicializa la base de datos creando las tablas necesarias.
+    """
+    # Crear todas las tablas en la base de datos
     SQLModel.metadata.create_all(engine)
 
-# Dependencia para obtener la sesión de base de datos
+# Función para obtener una sesión de base de datos
 def get_db():
+    """
+    Obtiene una sesión de base de datos.
+    """
     with Session(engine) as session:
         yield session
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
