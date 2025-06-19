@@ -1,12 +1,15 @@
-from sqlmodel import Session, select
-from app.models.models import Usuario, Cotizacion
-from app.schemas.schemas import UsuarioCreate, UsuarioUpdate, CotizacionCreate, CotizacionUpdate
-from app.services.auth import get_password_hash
 from typing import List, Optional
 
-# Servicios de Usuario
+from sqlmodel import Session, select
+
+from app.services.auth import get_password_hash
+from app.models.models import Usuario
+from app.schemas.schemas import UsuarioCreate, UsuarioUpdate
+
+
 class UsuarioService:
-    
+    """Servicio para manejar operaciones de usuario en la base de datos"""
+
     @staticmethod
     def get_usuario_by_id(db: Session, usuario_id: int) -> Optional[Usuario]:
         """Obtener usuario por ID"""

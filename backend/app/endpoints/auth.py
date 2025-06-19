@@ -1,12 +1,18 @@
+"""Módulo de autenticación y autorización
+Este módulo maneja el registro, inicio de sesión y autenticación de usuarios.
+"""
+
+from datetime import timedelta
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlmodel import Session
-from datetime import timedelta
+
 from app.database.database import get_db
 from app.schemas.schemas import UsuarioCreate, UsuarioResponse, Token, LoginRequest
 from app.services.auth import verify_password, create_access_token, verify_token
 from app.services.database_service import UsuarioService
-from app.config import settings
+from app import settings
 
 router = APIRouter(prefix="/auth", tags=["Autenticación"])
 
