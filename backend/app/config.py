@@ -12,7 +12,6 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     
     # API
-    API_V1_STR: str = "/api/v1"
     PROJECT_NAME: str = "MVC Proyecto API"
     DEBUG: bool = True
     

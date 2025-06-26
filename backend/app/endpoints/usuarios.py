@@ -1,5 +1,3 @@
-from typing import List
-
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session
 
@@ -10,7 +8,7 @@ from app.endpoints.auth import get_current_user
 
 router = APIRouter(prefix="/usuarios", tags=["Usuarios"])
 
-@router.get("/", response_model=List[UsuarioResponse])
+@router.get("/", response_model=list[UsuarioResponse])
 def get_usuarios(
     skip: int = 0, 
     limit: int = 100, 

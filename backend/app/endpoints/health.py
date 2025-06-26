@@ -9,17 +9,17 @@ router = APIRouter(tags=["Health"])
 def health_check():
     """Endpoint para verificar el estado de la API"""
     return {
-        "status": "healthy",
+
         "message": "MVC Proyecto API está funcionando correctamente",
-        "timestamp": datetime.now()
     }
 
 @router.get("/")
 def root():
     """Endpoint raíz"""
     return {
-        "message": "¡Bienvenido a MVC Proyecto API!",
-        "version": "1.0.0",
+        "status": "Saludable",
+        "message": "MVC API - Sistemas de Información",
+        "version": "1.1.0",
         "docs": "/docs",
-        "health": "/health"
+        "timestamp": datetime.now()
     }
