@@ -1,24 +1,25 @@
 from sqlmodel import SQLModel
 from pydantic import EmailStr
-from typing import Optional
 from datetime import datetime
+
+# Por si acaso, el Optional no se usa en Python 3.13, por lo que se usa el tipo: str | None
 
 # Esquemas de Usuario
 class UsuarioBase(SQLModel):
     email: EmailStr
     nombre: str
     apellido: str
-    telefono: Optional[str] = None
+    telefono: str | None = None
 
 class UsuarioCreate(UsuarioBase):
     password: str
 
 class UsuarioUpdate(SQLModel):
-    email: Optional[EmailStr] = None
-    nombre: Optional[str] = None
-    apellido: Optional[str] = None
-    telefono: Optional[str] = None
-    is_active: Optional[bool] = None
+    email: EmailStr | None = None
+    nombre: str | None = None
+    apellido: str | None = None
+    telefono: str | None = None
+    is_active: bool | None = None
 
 class UsuarioResponse(UsuarioBase):
     id: int
@@ -32,7 +33,7 @@ class Token(SQLModel):
     token_type: str
 
 class TokenData(SQLModel):
-    email: Optional[str] = None
+    email: str | None = None
 
 class LoginRequest(SQLModel):
     email: EmailStr

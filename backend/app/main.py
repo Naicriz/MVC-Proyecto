@@ -10,7 +10,7 @@ init_db()
 # Crear la aplicación FastAPI
 app = FastAPI(
     title=settings.PROJECT_NAME,
-    version="1.0.0",
+    version="1.1.0",
     description="API del proyecto MVC - Sistemas de Información",
     docs_url="/docs",
     redoc_url="/redoc"
@@ -27,9 +27,9 @@ app.add_middleware(
 
 # Incluir routers
 app.include_router(health_router)
-app.include_router(auth_router, prefix=settings.API_V1_STR)
-app.include_router(usuarios_router, prefix=settings.API_V1_STR)
-app.include_router(cotizaciones_router, prefix=settings.API_V1_STR)
+app.include_router(auth_router)
+app.include_router(usuarios_router)
+app.include_router(cotizaciones_router)
 
 if __name__ == "__main__":
     import uvicorn

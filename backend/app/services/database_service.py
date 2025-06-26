@@ -1,5 +1,3 @@
-from typing import List, Optional
-
 from sqlmodel import Session, select
 
 from app.services.auth import get_password_hash
@@ -11,18 +9,18 @@ class UsuarioService:
     """Servicio para manejar operaciones de usuario en la base de datos"""
 
     @staticmethod
-    def get_usuario_by_id(db: Session, usuario_id: int) -> Optional[Usuario]:
+    def get_usuario_by_id(db: Session, usuario_id: int) -> Usuario | None:
         """Obtener usuario por ID"""
         return db.get(Usuario, usuario_id)
     
     @staticmethod
-    def get_usuario_by_email(db: Session, email: str) -> Optional[Usuario]:
+    def get_usuario_by_email(db: Session, email: str) -> Usuario | None:
         """Obtener usuario por email"""
         statement = select(Usuario).where(Usuario.email == email)
         return db.exec(statement).first()
     
     @staticmethod
-    def get_usuarios(db: Session, skip: int = 0, limit: int = 100) -> List[Usuario]:
+    def get_usuarios(db: Session, skip: int = 0, limit: int = 100) -> list[Usuario]:
         """Obtener lista de usuarios"""
         statement = select(Usuario).offset(skip).limit(limit)
         return db.exec(statement).all()
@@ -44,7 +42,7 @@ class UsuarioService:
         return db_usuario
     
     @staticmethod
-    def update_usuario(db: Session, usuario_id: int, usuario_update: UsuarioUpdate) -> Optional[Usuario]:
+    def update_usuario(db: Session, usuario_id: int, usuario_update: UsuarioUpdate) -> Usuario | None:
         """Actualizar usuario"""
         db_usuario = db.get(Usuario, usuario_id)
         if not db_usuario:
