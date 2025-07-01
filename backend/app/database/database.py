@@ -1,4 +1,4 @@
-from sqlmodel import create_engine, SQLModel, Session
+from sqlmodel import create_engine, SQLModel, Session, select
 from app import settings
 from app.models.models import Usuario
 from app.services.auth import get_password_hash
@@ -12,29 +12,31 @@ engine = create_engine(
 )
 
 def init_db():
-    """
-    Inicializa la base de datos creando las tablas necesarias.
-    """
-
-    # crear un usuario admin
-    admin_user = Usuario(
-        email="admin@mvc.cl",
-        nombre="Admin",
-        apellido="Istrador",
-        telefono="+56912345678",
-        hashed_password="Admin123",
-        is_active=True,
-        is_admin=True,
-        created_at=datetime.now(),
-        updated_at=datetime.now()
-    )
-    if not admin_user:
-        with Session(engine) as session:
-            session.add(admin_user)
-            session.commit()
+    """Inicializa la base de datos creando las tablas necesarias."""
 
     # Crear todas las tablas en la base de datos
     SQLModel.metadata.create_all(engine)
+
+    # Crear usuario administrador por defecto si no existe
+    with Session(engine) as session:
+        existing_admin = session.exec(
+            select(Usuario).where(Usuario.email == "admin@mvc.cl")
+        ).first()
+
+        if existing_admin is None:
+            admin_user = Usuario(
+                email="admin@mvc.cl",
+                nombre="Admin",
+                apellido="Istrador",
+                telefono="+56912345678",
+                hashed_password=get_password_hash("Admin123"),
+                is_active=True,
+                is_admin=True,
+                created_at=datetime.now(),
+                updated_at=datetime.now(),
+            )
+            session.add(admin_user)
+            session.commit()
 
 # Función para obtener una sesión de base de datos
 def get_db():
