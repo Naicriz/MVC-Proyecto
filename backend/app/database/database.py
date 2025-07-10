@@ -1,3 +1,12 @@
+# Dependencia para obtener una sesión de base de datos (SQLModel)
+def get_session():
+    from sqlmodel import Session
+    from .database import engine
+
+    with Session(engine) as session:
+        yield session
+
+
 from sqlmodel import create_engine, SQLModel, Session, select
 from app import settings
 from app.models.models import Usuario
@@ -7,9 +16,12 @@ from datetime import datetime
 # Crear el motor de base de datos
 engine = create_engine(
     settings.DATABASE_URL,
-    connect_args={"check_same_thread": False} if "sqlite" in settings.DATABASE_URL else {},
-    echo=settings.DEBUG
+    connect_args=(
+        {"check_same_thread": False} if "sqlite" in settings.DATABASE_URL else {}
+    ),
+    echo=settings.DEBUG,
 )
+
 
 def init_db():
     """Inicializa la base de datos creando las tablas necesarias."""
@@ -37,6 +49,7 @@ def init_db():
             )
             session.add(admin_user)
             session.commit()
+
 
 # Función para obtener una sesión de base de datos
 def get_db():

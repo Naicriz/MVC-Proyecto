@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app import settings
 from app.database.database import init_db
-from app.endpoints import auth_router, usuarios_router, cotizaciones_router, health_router
+from app.endpoints import auth_router, usuarios_router, cotizaciones_router, health_router, clientes_router
 
 # Inicializar la base de datos
 init_db()
@@ -30,6 +30,7 @@ app.include_router(health_router)
 app.include_router(auth_router)
 app.include_router(usuarios_router)
 app.include_router(cotizaciones_router)
+app.include_router(clientes_router)
 
 if __name__ == "__main__":
     import uvicorn

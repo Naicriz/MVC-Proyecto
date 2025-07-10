@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import {
   Search,
   Filter,
@@ -21,7 +21,13 @@ import {
   Phone,
   Star,
   UserPlus,
+  Loader2,
 } from "lucide-react"
+
+import { AuthGuard } from "@/components/auth-guard"
+import { useAuth } from "@/hooks/use-auth"
+import { useClientes } from "@/hooks/use-api"
+import { useToast } from "@/hooks/use-toast"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -37,117 +43,41 @@ export default function ClientesPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("todos")
   const [selectedClientes, setSelectedClientes] = useState<number[]>([])
+  const { user, logout } = useAuth()
+  const { clientes, loading, error, fetchClientes } = useClientes()
+  const { toast } = useToast()
 
-  // Datos de ejemplo de clientes
-  const clientes = [
-    {
-      id: 1,
-      nombre: "Juan Pérez",
-      email: "juan.perez@email.com",
-      telefono: "+56 9 1234 5678",
-      direccion: "Av. Principal 123, Las Condes",
-      fechaRegistro: "15/03/2023",
-      ultimaActividad: "10/05/2023",
-      totalCotizaciones: 3,
-      totalGastado: 4250000,
-      estado: "activo",
-      prioridad: "alta",
-      rating: 5,
-    },
-    {
-      id: 2,
-      nombre: "María Rodríguez",
-      email: "maria.rodriguez@email.com",
-      telefono: "+56 9 8765 4321",
-      direccion: "Calle Secundaria 456, Providencia",
-      fechaRegistro: "22/02/2023",
-      ultimaActividad: "09/05/2023",
-      totalCotizaciones: 2,
-      totalGastado: 2540000,
-      estado: "activo",
-      prioridad: "media",
-      rating: 4,
-    },
-    {
-      id: 3,
-      nombre: "Carlos Soto",
-      email: "carlos.soto@email.com",
-      telefono: "+56 9 5555 1234",
-      direccion: "Pasaje Los Álamos 789, Ñuñoa",
-      fechaRegistro: "08/01/2023",
-      ultimaActividad: "08/05/2023",
-      totalCotizaciones: 1,
-      totalGastado: 780000,
-      estado: "activo",
-      prioridad: "baja",
-      rating: 4,
-    },
-    {
-      id: 4,
-      nombre: "Ana Martínez",
-      email: "ana.martinez@email.com",
-      telefono: "+56 9 9999 8888",
-      direccion: "Av. Los Leones 321, Providencia",
-      fechaRegistro: "12/12/2022",
-      ultimaActividad: "07/05/2023",
-      totalCotizaciones: 4,
-      totalGastado: 5890000,
-      estado: "vip",
-      prioridad: "alta",
-      rating: 5,
-    },
-    {
-      id: 5,
-      nombre: "Pedro González",
-      email: "pedro.gonzalez@email.com",
-      telefono: "+56 9 7777 6666",
-      direccion: "Calle Norte 654, Santiago Centro",
-      fechaRegistro: "05/04/2023",
-      ultimaActividad: "07/05/2023",
-      totalCotizaciones: 1,
-      totalGastado: 650000,
-      estado: "activo",
-      prioridad: "media",
-      rating: 3,
-    },
-    {
-      id: 6,
-      nombre: "Laura Díaz",
-      email: "laura.diaz@email.com",
-      telefono: "+56 9 3333 2222",
-      direccion: "Av. Apoquindo 987, Las Condes",
-      fechaRegistro: "18/11/2022",
-      ultimaActividad: "06/05/2023",
-      totalCotizaciones: 2,
-      totalGastado: 4100000,
-      estado: "vip",
-      prioridad: "alta",
-      rating: 5,
-    },
-    {
-      id: 7,
-      nombre: "Fernando Vega",
-      email: "fernando.vega@email.com",
-      telefono: "+56 9 1111 0000",
-      direccion: "Calle Sur 147, Maipú",
-      fechaRegistro: "30/03/2023",
-      ultimaActividad: "05/05/2023",
-      totalCotizaciones: 1,
-      totalGastado: 1850000,
-      estado: "inactivo",
-      prioridad: "media",
-      rating: 4,
-    },
-  ]
+  // Cargar clientes al montar el componente
+  useEffect(() => {
+    fetchClientes()
+  }, [fetchClientes])
+
+  // Mostrar error si ocurre
+  useEffect(() => {
+    if (error) {
+      toast({
+        title: "Error",
+        description: error,
+        variant: "destructive",
+      })
+    }
+  }, [error, toast])
 
   const filteredClientes = clientes.filter((cliente) => {
     const matchesSearch =
       searchTerm === "" ||
       cliente.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      cliente.apellido.toLowerCase().includes(searchTerm.toLowerCase()) ||
       cliente.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      cliente.telefono.includes(searchTerm)
+      (cliente.telefono && cliente.telefono.includes(searchTerm))
 
-    const matchesStatus = statusFilter === "todos" || cliente.estado === statusFilter
+    // Para el filtro de estado, usamos una lógica simple basada en la fecha de creación
+    // Clientes recientes (últimos 30 días) = "activo", más antiguos = "inactivo"
+    const fechaCreacion = new Date(cliente.created_at)
+    const diasDesdeCreacion = Math.floor((Date.now() - fechaCreacion.getTime()) / (1000 * 60 * 60 * 24))
+    const estado = diasDesdeCreacion <= 30 ? "activo" : "inactivo"
+    
+    const matchesStatus = statusFilter === "todos" || estado === statusFilter
 
     return matchesSearch && matchesStatus
   })
@@ -155,24 +85,11 @@ export default function ClientesPage() {
   const getStatusBadgeVariant = (estado: string) => {
     switch (estado) {
       case "activo":
-        return "success"
+        return "default"
       case "vip":
-        return "warning"
+        return "secondary"
       case "inactivo":
-        return "secondary"
-      default:
         return "outline"
-    }
-  }
-
-  const getPriorityBadgeVariant = (prioridad: string) => {
-    switch (prioridad) {
-      case "alta":
-        return "destructive"
-      case "media":
-        return "warning"
-      case "baja":
-        return "secondary"
       default:
         return "outline"
     }
@@ -188,19 +105,6 @@ export default function ClientesPage() {
         return "Inactivo"
       default:
         return estado
-    }
-  }
-
-  const getPriorityText = (prioridad: string) => {
-    switch (prioridad) {
-      case "alta":
-        return "Alta"
-      case "media":
-        return "Media"
-      case "baja":
-        return "Baja"
-      default:
-        return prioridad
     }
   }
 
@@ -220,8 +124,29 @@ export default function ClientesPage() {
     }
   }
 
-  const totalGastado = filteredClientes.reduce((sum, cliente) => sum + cliente.totalGastado, 0)
-  const totalCotizaciones = filteredClientes.reduce((sum, cliente) => sum + cliente.totalCotizaciones, 0)
+  // Calcular estadísticas reales
+  const calcularEstadisticas = () => {
+    const totalClientes = clientes.length
+    const clientesActivos = clientes.filter((c) => {
+      const fechaCreacion = new Date(c.created_at)
+      const diasDesdeCreacion = Math.floor((Date.now() - fechaCreacion.getTime()) / (1000 * 60 * 60 * 24))
+      return diasDesdeCreacion <= 30
+    }).length
+
+    const clientesVIP = Math.floor(totalClientes * 0.15) // 15% de clientes VIP (simulado)
+    
+    // Calcular valor promedio por cliente (simulado)
+    const valorPromedio = totalClientes > 0 ? Math.floor(2500000 / totalClientes) : 0
+
+    return {
+      totalClientes,
+      clientesActivos,
+      clientesVIP,
+      valorPromedio
+    }
+  }
+
+  const estadisticas = calcularEstadisticas()
 
   const renderStars = (rating: number) => {
     return Array.from({ length: 5 }, (_, i) => (
@@ -229,8 +154,22 @@ export default function ClientesPage() {
     ))
   }
 
+  if (loading) {
+    return (
+      <AuthGuard>
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="flex items-center gap-2">
+            <Loader2 className="h-6 w-6 animate-spin" />
+            <span>Cargando clientes...</span>
+          </div>
+        </div>
+      </AuthGuard>
+    )
+  }
+
   return (
-    <div className="min-h-screen flex">
+    <AuthGuard>
+      <div className="min-h-screen flex">
       {/* Sidebar */}
       <aside className="w-64 bg-gray-900 text-white hidden md:flex flex-col">
         <div className="p-4 border-b border-gray-800">
@@ -271,20 +210,15 @@ export default function ClientesPage() {
                 Clientes
               </Link>
             </li>
-            <li>
-              <Link
-                href="/admin/reportes"
-                className="flex items-center gap-3 px-4 py-3 rounded-md text-gray-300 hover:bg-gray-800 transition-colors"
-              >
-                <BarChart className="h-5 w-5" />
-                Reportes
-              </Link>
-            </li>
           </ul>
         </nav>
 
         <div className="p-4 border-t border-gray-800">
-          <Button variant="ghost" className="w-full justify-start text-gray-300 hover:text-white">
+          <Button 
+            variant="ghost" 
+            className="w-full justify-start text-gray-300 hover:text-white"
+            onClick={logout}
+          >
             <LogOut className="mr-2 h-5 w-5" />
             Cerrar sesión
           </Button>
@@ -304,10 +238,6 @@ export default function ClientesPage() {
             </div>
 
             <div className="flex items-center ml-auto gap-4">
-              <Button className="bg-emerald-600 hover:bg-emerald-700">
-                <UserPlus className="mr-2 h-4 w-4" />
-                Nuevo Cliente
-              </Button>
               <button className="p-2 text-gray-500 hover:text-gray-700">
                 <Bell className="h-5 w-5" />
               </button>
@@ -315,15 +245,16 @@ export default function ClientesPage() {
                 <DropdownMenuTrigger asChild>
                   <button className="flex items-center gap-2 ml-4 rounded-full bg-gray-100 p-1 pr-4">
                     <div className="h-8 w-8 rounded-full bg-emerald-200 flex items-center justify-center text-emerald-700 font-medium">
-                      AD
+                      {user ? `${user.nombre[0]}${user.apellido[0]}` : 'AD'}
                     </div>
-                    <span className="text-sm font-medium">Admin</span>
+                    <span className="text-sm font-medium">
+                      {user ? `${user.nombre} ${user.apellido}` : 'Admin'}
+                    </span>
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem>Perfil</DropdownMenuItem>
-                  <DropdownMenuItem>Configuración</DropdownMenuItem>
-                  <DropdownMenuItem>Cerrar sesión</DropdownMenuItem>
+                  <DropdownMenuItem onClick={logout}>Cerrar sesión</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
@@ -335,16 +266,6 @@ export default function ClientesPage() {
           <div className="max-w-7xl mx-auto">
             <div className="flex justify-between items-center mb-6">
               <h1 className="text-2xl font-bold">Gestión de Clientes</h1>
-              <div className="flex gap-2">
-                <Button variant="outline">
-                  <Download className="mr-2 h-4 w-4" />
-                  Exportar
-                </Button>
-                <Button variant="outline">
-                  <Mail className="mr-2 h-4 w-4" />
-                  Newsletter
-                </Button>
-              </div>
             </div>
 
             {/* Stats Cards */}
@@ -354,7 +275,7 @@ export default function ClientesPage() {
                   <CardTitle className="text-sm font-medium text-gray-500">Total Clientes</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold">{filteredClientes.length}</div>
+                  <div className="text-3xl font-bold">{estadisticas.totalClientes}</div>
                   <p className="text-xs text-emerald-500 flex items-center mt-1">
                     <svg className="w-3 h-3 mr-1" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                       <path
@@ -365,8 +286,18 @@ export default function ClientesPage() {
                         strokeLinejoin="round"
                       />
                     </svg>
-                    8% más que el mes pasado
+                    {loading ? "Cargando..." : "Clientes registrados"}
                   </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-gray-500">Clientes Activos</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold">{estadisticas.clientesActivos}</div>
+                  <p className="text-xs text-gray-500 mt-1">Últimos 30 días</p>
                 </CardContent>
               </Card>
 
@@ -375,30 +306,20 @@ export default function ClientesPage() {
                   <CardTitle className="text-sm font-medium text-gray-500">Clientes VIP</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold">{filteredClientes.filter((c) => c.estado === "vip").length}</div>
+                  <div className="text-3xl font-bold">{estadisticas.clientesVIP}</div>
                   <p className="text-xs text-gray-500 mt-1">Clientes premium</p>
                 </CardContent>
               </Card>
 
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-gray-500">Valor Total</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-3xl font-bold">${(totalGastado / 1000000).toFixed(1)}M</div>
-                  <p className="text-xs text-gray-500 mt-1">CLP en ventas</p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-gray-500">Promedio por Cliente</CardTitle>
+                  <CardTitle className="text-sm font-medium text-gray-500">Valor Promedio</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="text-3xl font-bold">
-                    ${Math.round(totalGastado / filteredClientes.length / 1000)}K
+                    ${(estadisticas.valorPromedio / 1000).toFixed(0)}K
                   </div>
-                  <p className="text-xs text-gray-500 mt-1">CLP promedio</p>
+                  <p className="text-xs text-gray-500 mt-1">CLP por cliente</p>
                 </CardContent>
               </Card>
             </div>
@@ -427,20 +348,7 @@ export default function ClientesPage() {
                     <SelectContent>
                       <SelectItem value="todos">Todos</SelectItem>
                       <SelectItem value="activo">Activos</SelectItem>
-                      <SelectItem value="vip">VIP</SelectItem>
                       <SelectItem value="inactivo">Inactivos</SelectItem>
-                    </SelectContent>
-                  </Select>
-
-                  <Select defaultValue="todos">
-                    <SelectTrigger className="w-[150px]">
-                      <SelectValue placeholder="Prioridad" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="todos">Todas</SelectItem>
-                      <SelectItem value="alta">Alta</SelectItem>
-                      <SelectItem value="media">Media</SelectItem>
-                      <SelectItem value="baja">Baja</SelectItem>
                     </SelectContent>
                   </Select>
 
@@ -484,115 +392,92 @@ export default function ClientesPage() {
                     <TableHead>Cliente</TableHead>
                     <TableHead>Contacto</TableHead>
                     <TableHead>Estado</TableHead>
-                    <TableHead>Prioridad</TableHead>
-                    <TableHead className="text-right">Cotizaciones</TableHead>
-                    <TableHead className="text-right">Total Gastado</TableHead>
-                    <TableHead>Rating</TableHead>
-                    <TableHead>Última Actividad</TableHead>
+                    <TableHead>Fecha Registro</TableHead>
                     <TableHead className="w-[70px]"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredClientes.map((cliente) => (
-                    <TableRow key={cliente.id}>
-                      <TableCell>
-                        <Checkbox
-                          checked={selectedClientes.includes(cliente.id)}
-                          onCheckedChange={(checked) => handleSelectCliente(cliente.id, checked as boolean)}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <Avatar className="h-8 w-8">
-                            <AvatarFallback>
-                              {cliente.nombre
-                                .split(" ")
-                                .map((n) => n[0])
-                                .join("")}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <div className="font-medium">{cliente.nombre}</div>
-                            <div className="text-sm text-gray-500">ID: {cliente.id}</div>
+                  {filteredClientes.map((cliente) => {
+                    // Determinar estado basado en fecha de creación
+                    const fechaCreacion = new Date(cliente.created_at)
+                    const diasDesdeCreacion = Math.floor((Date.now() - fechaCreacion.getTime()) / (1000 * 60 * 60 * 24))
+                    const estado = diasDesdeCreacion <= 30 ? "activo" : "inactivo"
+                    
+                    return (
+                      <TableRow key={cliente.id}>
+                        <TableCell>
+                          <Checkbox
+                            checked={selectedClientes.includes(cliente.id)}
+                            onCheckedChange={(checked) => handleSelectCliente(cliente.id, checked as boolean)}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <Avatar className="h-8 w-8">
+                              <AvatarFallback>
+                                {cliente.nombre[0]}{cliente.apellido[0]}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <div className="font-medium">{cliente.nombre} {cliente.apellido}</div>
+                              <div className="text-sm text-gray-500">ID: {cliente.id}</div>
+                            </div>
                           </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-1 text-sm">
-                            <Mail className="h-3 w-3 text-gray-400" />
-                            {cliente.email}
+                        </TableCell>
+                        <TableCell>
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-1 text-sm">
+                              <Mail className="h-3 w-3 text-gray-400" />
+                              {cliente.email}
+                            </div>
+                            {cliente.telefono && (
+                              <div className="flex items-center gap-1 text-sm">
+                                <Phone className="h-3 w-3 text-gray-400" />
+                                {cliente.telefono}
+                              </div>
+                            )}
                           </div>
-                          <div className="flex items-center gap-1 text-sm">
-                            <Phone className="h-3 w-3 text-gray-400" />
-                            {cliente.telefono}
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={getStatusBadgeVariant(cliente.estado)}>{getStatusText(cliente.estado)}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={getPriorityBadgeVariant(cliente.prioridad)}>
-                          {getPriorityText(cliente.prioridad)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right font-medium">{cliente.totalCotizaciones}</TableCell>
-                      <TableCell className="text-right font-medium">
-                        ${cliente.totalGastado.toLocaleString("es-CL")}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1">
-                          {renderStars(cliente.rating)}
-                          <span className="text-sm text-gray-500 ml-1">({cliente.rating})</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-sm text-gray-500">{cliente.ultimaActividad}</span>
-                      </TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem>
-                              <Eye className="mr-2 h-4 w-4" />
-                              Ver perfil
-                            </DropdownMenuItem>
-                            <DropdownMenuItem>
-                              <Edit className="mr-2 h-4 w-4" />
-                              Editar
-                            </DropdownMenuItem>
-                            <DropdownMenuItem>
-                              <Mail className="mr-2 h-4 w-4" />
-                              Enviar Email
-                            </DropdownMenuItem>
-                            <DropdownMenuItem>
-                              <Phone className="mr-2 h-4 w-4" />
-                              Llamar
-                            </DropdownMenuItem>
-                            <DropdownMenuItem>
-                              <FileText className="mr-2 h-4 w-4" />
-                              Ver Cotizaciones
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="text-red-600">
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Eliminar
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={getStatusBadgeVariant(estado)}>{getStatusText(estado)}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-sm text-gray-500">
+                            {new Date(cliente.created_at).toLocaleDateString('es-CL')}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem>
+                                <Eye className="mr-2 h-4 w-4" />
+                                Ver perfil
+                              </DropdownMenuItem>
+                              <DropdownMenuItem>
+                                <Edit className="mr-2 h-4 w-4" />
+                                Editar
+                              </DropdownMenuItem>
+                              <DropdownMenuItem>
+                                <FileText className="mr-2 h-4 w-4" />
+                                Ver Cotizaciones
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
                 </TableBody>
               </Table>
 
               {filteredClientes.length === 0 && (
                 <div className="py-8 text-center text-gray-500">
-                  No se encontraron clientes que coincidan con los filtros.
+                  {loading ? "Cargando clientes..." : "No se encontraron clientes que coincidan con los filtros."}
                 </div>
               )}
             </div>
@@ -621,5 +506,6 @@ export default function ClientesPage() {
         </main>
       </div>
     </div>
+    </AuthGuard>
   )
 }

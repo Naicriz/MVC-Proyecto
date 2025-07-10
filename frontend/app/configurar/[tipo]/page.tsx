@@ -14,20 +14,165 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { useToast } from "@/hooks/use-toast"
+import { useCotizaciones, useClientes } from "@/hooks/use-api"
+import type { CotizacionCreate, ClienteCreate } from "@/lib/api"
 
 export default function ConfiguracionCotizacion() {
   const router = useRouter()
   const params = useParams()
   const tipo = typeof params.tipo === "string" ? params.tipo : ""
+  const { toast } = useToast()
+  const { crearCotizacion, calcularCotizacionTemporal, calcularPrecioEspecificaciones, loading: cotizacionLoading } = useCotizaciones()
+  const { crearClienteTemporal, loading: clienteLoading } = useClientes()
 
-  const [materialSeleccionado, setMaterialSeleccionado] = useState("melamina")
+  const [formData, setFormData] = useState({
+    alto: "",
+    ancho: "",
+    profundidad: "",
+    material: "melamina",
+    color: "blanco",
+    herrajes: "estandar",
+    puertas: "2",
+    cajones: "3",
+    repisas: "4",
+    notas: "",
+  })
 
   // Capitalizar primera letra del tipo
   const tipoCapitalizado = tipo.charAt(0).toUpperCase() + tipo.slice(1)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleInputChange = (field: string, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }))
+  }
+
+  const calcularPrecioEstimado = () => {
+    const alto = parseFloat(formData.alto) || 0
+    const ancho = parseFloat(formData.ancho) || 0
+    const profundidad = parseFloat(formData.profundidad) || 0
+    
+    // Cálculo básico del precio basado en dimensiones y materiales
+    let precioBase = (alto * ancho * profundidad) / 1000000 * 50000 // 50.000 CLP por m³
+    
+    // Multiplicadores por material
+    const multiplicadoresMaterial = {
+      melamina: 1,
+      mdf: 1.2,
+      "madera-natural": 1.5,
+      "maderas-enchapadas": 1.8,
+    }
+    
+    precioBase *= multiplicadoresMaterial[formData.material as keyof typeof multiplicadoresMaterial] || 1
+    
+    // Multiplicador por herrajes
+    const multiplicadoresHerrajes = {
+      estandar: 1,
+      premium: 1.3,
+      "cierre-suave": 1.2,
+    }
+    
+    precioBase *= multiplicadoresHerrajes[formData.herrajes as keyof typeof multiplicadoresHerrajes] || 1
+    
+    return Math.round(precioBase)
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    router.push(`/cotizacion?tipo=${tipo}`)
+    
+    if (!formData.alto || !formData.ancho || !formData.profundidad) {
+      toast({
+        title: "Error",
+        description: "Por favor completa las medidas básicas",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      // Usar el backend para calcular el precio basado en las especificaciones
+      const precioData = await calcularPrecioEspecificaciones({
+        alto: parseFloat(formData.alto) || 0,
+        ancho: parseFloat(formData.ancho) || 0,
+        profundidad: parseFloat(formData.profundidad) || 0,
+        material: formData.material,
+        color: formData.color,
+        herrajes: formData.herrajes,
+        puertas: formData.puertas,
+        cajones: formData.cajones,
+        repisas: formData.repisas,
+        tipo_mueble: tipo
+      })
+
+      const precioEstimado = precioData.precio_estimado
+
+      // Crear cliente temporal con email único
+      const timestamp = Date.now()
+      const clienteData: ClienteCreate = {
+        nombre: "Cliente",
+        apellido: "Temporal",
+        email: `cliente.temporal.${timestamp}@example.com`,
+        telefono: "+56912345678",
+        direccion: "Dirección temporal",
+      }
+
+      const cliente = await crearClienteTemporal(clienteData)
+      
+      // Crear cotización temporal con el precio calculado por el backend
+      const cotizacionData: CotizacionCreate = {
+        fecha: new Date().toISOString(),
+        total: precioEstimado,
+        cliente_id: cliente.id,
+        observaciones: formData.notas,
+        items: [
+          {
+            nombre: `${tipoCapitalizado} a Medida`,
+            descripcion: `${formData.alto}cm x ${formData.ancho}cm x ${formData.profundidad}cm - Material: ${formData.material}, Color: ${formData.color}, Herrajes: ${formData.herrajes}, Puertas: ${formData.puertas}, Cajones: ${formData.cajones}, Repisas: ${formData.repisas}`,
+            cantidad: 1,
+            unidad: "unidad",
+            tipo_material: formData.material,
+            precio_unitario: precioEstimado,
+            subtotal: precioEstimado,
+            dimensiones: `${formData.alto}cm x ${formData.ancho}cm x ${formData.profundidad}cm`,
+            color_acabado: formData.color,
+            herrajes_tipo: formData.herrajes,
+            puertas: parseInt(formData.puertas) || 0,
+            cajones: parseInt(formData.cajones) || 0,
+            repisas: parseInt(formData.repisas) || 0,
+          }
+        ]
+      }
+
+      // Usar el backend para calcular la cotización con desglose detallado
+      const cotizacionTemporal = await calcularCotizacionTemporal(cotizacionData)
+      console.log('Cotización temporal calculada:', cotizacionTemporal)
+      
+      // Crear objeto completo con cliente temporal y cotización temporal
+      const datosCompletos = {
+        cliente_temporal: cliente,
+        cotizacion_temporal: cotizacionTemporal.cotizacion_temporal // <-- fix aquí
+      }
+      
+      console.log('Datos completos a guardar:', datosCompletos)
+      
+      // Guardar datos temporales en sessionStorage para pasarlos a la página de cotización
+      sessionStorage.setItem('cotizacionTemporal', JSON.stringify(datosCompletos))
+      console.log('Datos guardados en sessionStorage')
+      
+      toast({
+        title: "Cotización calculada",
+        description: "Tu cotización ha sido calculada exitosamente",
+      })
+
+      // Redirigir a la página de cotización con los datos temporales
+      router.push(`/cotizacion?tipo=${tipo}&temporal=true`)
+    } catch (error) {
+      console.error('Error al calcular cotización:', error)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "No se pudo calcular la cotización. Inténtalo de nuevo.",
+        variant: "destructive",
+      })
+    }
   }
 
   return (
@@ -78,7 +223,14 @@ export default function ConfiguracionCotizacion() {
                           </Tooltip>
                         </TooltipProvider>
                       </div>
-                      <Input type="number" id="alto" placeholder="Ej: 220" min="0" />
+                      <Input 
+                        type="number" 
+                        id="alto" 
+                        placeholder="Ej: 220" 
+                        min="0" 
+                        value={formData.alto}
+                        onChange={(e) => handleInputChange("alto", e.target.value)}
+                      />
                     </div>
 
                     <div className="space-y-2">
@@ -97,7 +249,14 @@ export default function ConfiguracionCotizacion() {
                           </Tooltip>
                         </TooltipProvider>
                       </div>
-                      <Input type="number" id="ancho" placeholder="Ej: 120" min="0" />
+                      <Input 
+                        type="number" 
+                        id="ancho" 
+                        placeholder="Ej: 120" 
+                        min="0" 
+                        value={formData.ancho}
+                        onChange={(e) => handleInputChange("ancho", e.target.value)}
+                      />
                     </div>
 
                     <div className="space-y-2">
@@ -116,7 +275,14 @@ export default function ConfiguracionCotizacion() {
                           </Tooltip>
                         </TooltipProvider>
                       </div>
-                      <Input type="number" id="profundidad" placeholder="Ej: 60" min="0" />
+                      <Input 
+                        type="number" 
+                        id="profundidad" 
+                        placeholder="Ej: 60" 
+                        min="0" 
+                        value={formData.profundidad}
+                        onChange={(e) => handleInputChange("profundidad", e.target.value)}
+                      />
                     </div>
                   </div>
                 </TabsContent>
@@ -125,7 +291,12 @@ export default function ConfiguracionCotizacion() {
                   <div className="space-y-4">
                     <div className="space-y-2">
                       <Label htmlFor="material-principal">Material Principal</Label>
-                      <Select defaultValue="melamina" onValueChange={(value) => setMaterialSeleccionado(value)}>
+                      <Select 
+                        value={formData.material} 
+                        onValueChange={(value) => {
+                          handleInputChange("material", value)
+                        }}
+                      >
                         <SelectTrigger id="material-principal">
                           <SelectValue placeholder="Seleccionar material" />
                         </SelectTrigger>
@@ -140,12 +311,15 @@ export default function ConfiguracionCotizacion() {
 
                     <div className="space-y-2">
                       <Label htmlFor="color-material">Color/Acabado</Label>
-                      <Select defaultValue="blanco">
+                      <Select 
+                        value={formData.color}
+                        onValueChange={(value) => handleInputChange("color", value)}
+                      >
                         <SelectTrigger id="color-material">
                           <SelectValue placeholder="Seleccionar color/acabado" />
                         </SelectTrigger>
                         <SelectContent>
-                          {materialSeleccionado === "melamina" && (
+                          {formData.material === "melamina" && (
                             <>
                               <SelectItem value="blanco">Blanco</SelectItem>
                               <SelectItem value="gris">Gris</SelectItem>
@@ -155,7 +329,7 @@ export default function ConfiguracionCotizacion() {
                             </>
                           )}
 
-                          {materialSeleccionado === "mdf" && (
+                          {formData.material === "mdf" && (
                             <>
                               <SelectItem value="blanco">Blanco</SelectItem>
                               <SelectItem value="pintable">Sin acabado (Pintable)</SelectItem>
@@ -163,7 +337,7 @@ export default function ConfiguracionCotizacion() {
                             </>
                           )}
 
-                          {materialSeleccionado === "madera-natural" && (
+                          {formData.material === "madera-natural" && (
                             <>
                               <SelectItem value="pino">Pino</SelectItem>
                               <SelectItem value="lenga">Lenga</SelectItem>
@@ -172,7 +346,7 @@ export default function ConfiguracionCotizacion() {
                             </>
                           )}
 
-                          {materialSeleccionado === "maderas-enchapadas" && (
+                          {formData.material === "maderas-enchapadas" && (
                             <>
                               <SelectItem value="cerezo">Cerezo</SelectItem>
                               <SelectItem value="nogal">Nogal</SelectItem>
@@ -185,7 +359,10 @@ export default function ConfiguracionCotizacion() {
 
                     <div className="space-y-2">
                       <Label htmlFor="herrajes">Herrajes y Accesorios</Label>
-                      <Select defaultValue="estandar">
+                      <Select 
+                        value={formData.herrajes}
+                        onValueChange={(value) => handleInputChange("herrajes", value)}
+                      >
                         <SelectTrigger id="herrajes">
                           <SelectValue placeholder="Seleccionar herrajes" />
                         </SelectTrigger>
@@ -203,7 +380,10 @@ export default function ConfiguracionCotizacion() {
                   <div className="space-y-4">
                     <div className="space-y-2">
                       <Label htmlFor="puertas">Cantidad de puertas</Label>
-                      <Select defaultValue="2">
+                      <Select 
+                        value={formData.puertas}
+                        onValueChange={(value) => handleInputChange("puertas", value)}
+                      >
                         <SelectTrigger id="puertas">
                           <SelectValue placeholder="Seleccionar cantidad" />
                         </SelectTrigger>
@@ -220,7 +400,10 @@ export default function ConfiguracionCotizacion() {
 
                     <div className="space-y-2">
                       <Label htmlFor="cajones">Cantidad de cajones</Label>
-                      <Select defaultValue="3">
+                      <Select 
+                        value={formData.cajones}
+                        onValueChange={(value) => handleInputChange("cajones", value)}
+                      >
                         <SelectTrigger id="cajones">
                           <SelectValue placeholder="Seleccionar cantidad" />
                         </SelectTrigger>
@@ -237,7 +420,10 @@ export default function ConfiguracionCotizacion() {
 
                     <div className="space-y-2">
                       <Label htmlFor="repisas">Cantidad de repisas/divisiones</Label>
-                      <Select defaultValue="4">
+                      <Select 
+                        value={formData.repisas}
+                        onValueChange={(value) => handleInputChange("repisas", value)}
+                      >
                         <SelectTrigger id="repisas">
                           <SelectValue placeholder="Seleccionar cantidad" />
                         </SelectTrigger>
@@ -257,6 +443,8 @@ export default function ConfiguracionCotizacion() {
                         id="notas"
                         placeholder="Describe cualquier detalle especial que necesites para tu mueble..."
                         rows={4}
+                        value={formData.notas}
+                        onChange={(e) => handleInputChange("notas", e.target.value)}
                       />
                     </div>
 
@@ -276,8 +464,13 @@ export default function ConfiguracionCotizacion() {
               </Tabs>
 
               <div className="border-t pt-6 flex justify-end">
-                <Button type="submit" size="lg" className="bg-emerald-600 hover:bg-emerald-700">
-                  Calcular Presupuesto Estimado
+                <Button 
+                  type="submit" 
+                  size="lg" 
+                  className="bg-emerald-600 hover:bg-emerald-700"
+                  disabled={cotizacionLoading || clienteLoading}
+                >
+                  {cotizacionLoading || clienteLoading ? "Creando cotización..." : "Calcular Presupuesto Estimado"}
                 </Button>
               </div>
             </form>

@@ -4,7 +4,7 @@ import { Label } from "@/components/ui/label"
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useParams } from "next/navigation"
 import {
@@ -23,6 +23,8 @@ import {
   Eye,
   Flag,
   Pencil,
+  Loader2,
+  DollarSign,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -40,16 +42,67 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { useToast } from "@/hooks/use-toast"
+import { apiService } from "@/lib/api"
+import { descargarPDFCotizacion } from "@/hooks/use-api"
+
+import type { Cotizacion } from "@/lib/api"
+import { Input } from "@/components/ui/input"
 
 export default function DetalleCotizacion() {
   const params = useParams()
   const id = params.id
+  const { toast } = useToast()
 
+  const [cotizacion, setCotizacion] = useState<Cotizacion | null>(null)
+  const [loading, setLoading] = useState(true)
   const [estado, setEstado] = useState("revisado")
   const [notaInterna, setNotaInterna] = useState("")
-  const [precioModificado, setPrecioModificado] = useState(1890000)
+  const [precioModificado, setPrecioModificado] = useState(0)
   const [editandoPrecio, setEditandoPrecio] = useState(false)
   const [dialogoContacto, setDialogoContacto] = useState(false)
+  const [datosContacto, setDatosContacto] = useState({
+    metodo: "telefono",
+    resultado: "interesado",
+    notas: ""
+  })
+  const [loadingAccion, setLoadingAccion] = useState(false)
+  const [modalEditar, setModalEditar] = useState(false)
+  const [editForm, setEditForm] = useState<any>(null)
+
+  // Cargar datos de la cotización
+  useEffect(() => {
+    const cargarCotizacion = async () => {
+      if (!id) return
+      
+      try {
+        setLoading(true)
+        const cotizacionData = await apiService.getCotizacion(Number(id))
+        setCotizacion(cotizacionData)
+        setPrecioModificado(cotizacionData.total)
+        
+        // Determinar estado basado en observaciones
+        const observaciones = cotizacionData.observaciones?.toLowerCase() || ""
+        if (observaciones.includes("nuevo")) setEstado("nuevo")
+        else if (observaciones.includes("revisado")) setEstado("revisado")
+        else if (observaciones.includes("contactado")) setEstado("contactado")
+        else if (observaciones.includes("aprobado")) setEstado("aprobado")
+        else setEstado("nuevo")
+        
+      } catch (error) {
+        console.error('Error al cargar cotización:', error)
+        toast({
+          title: "Error",
+          description: "No se pudo cargar la cotización",
+          variant: "destructive",
+        })
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    cargarCotizacion()
+  }, [id, toast])
 
   // Obtener el color del badge según el estado
   const getStatusBadgeVariant = (estado: string) => {
@@ -59,9 +112,9 @@ export default function DetalleCotizacion() {
       case "revisado":
         return "secondary"
       case "contactado":
-        return "warning"
+        return "destructive"
       case "aprobado":
-        return "success"
+        return "default"
       default:
         return "outline"
     }
@@ -83,31 +136,293 @@ export default function DetalleCotizacion() {
     }
   }
 
-  const handleSubmitNota = (e: React.FormEvent) => {
+  const handleSubmitNota = async (e: React.FormEvent) => {
     e.preventDefault()
-    // Aquí iría la lógica para guardar la nota interna
-    alert("Nota interna guardada")
+    if (!notaInterna.trim() || !cotizacion) return
+    
+    try {
+      setLoadingAccion(true)
+      await apiService.agregarNotaInterna(cotizacion.id, notaInterna)
+      
+      // Recargar la cotización para mostrar la nueva nota
+      const cotizacionActualizada = await apiService.getCotizacion(cotizacion.id)
+      setCotizacion(cotizacionActualizada)
+      setNotaInterna("")
+      
+      toast({
+        title: "Nota guardada",
+        description: "La nota interna ha sido guardada exitosamente",
+      })
+    } catch (error) {
+      console.error('Error al guardar nota:', error)
+      toast({
+        title: "Error",
+        description: "No se pudo guardar la nota interna",
+        variant: "destructive",
+      })
+    } finally {
+      setLoadingAccion(false)
+    }
   }
 
-  const handleUpdatePrice = () => {
-    setEditandoPrecio(false)
-    // Aquí iría la lógica para actualizar el precio
-    alert("Precio actualizado")
+  const handleUpdatePrice = async () => {
+    if (!cotizacion) return
+    
+    try {
+      setLoadingAccion(true)
+      await apiService.actualizarPrecioCotizacion(cotizacion.id, precioModificado)
+      
+      // Recargar la cotización
+      const cotizacionActualizada = await apiService.getCotizacion(cotizacion.id)
+      setCotizacion(cotizacionActualizada)
+      setPrecioModificado(cotizacionActualizada.total)
+      setEditandoPrecio(false)
+      
+      toast({
+        title: "Precio actualizado",
+        description: "El precio ha sido actualizado exitosamente",
+      })
+    } catch (error) {
+      console.error('Error al actualizar precio:', error)
+      toast({
+        title: "Error",
+        description: "No se pudo actualizar el precio",
+        variant: "destructive",
+      })
+    } finally {
+      setLoadingAccion(false)
+    }
   }
 
-  const handleContactarCliente = () => {
-    setDialogoContacto(false)
-    setEstado("contactado")
-    // Aquí iría la lógica para registrar el contacto
-    alert("Cliente contactado")
+  const handleContactarCliente = async () => {
+    if (!cotizacion) return
+    
+    try {
+      setLoadingAccion(true)
+      await apiService.registrarContactoCliente(cotizacion.id, datosContacto)
+      
+      // Recargar la cotización
+      const cotizacionActualizada = await apiService.getCotizacion(cotizacion.id)
+      setCotizacion(cotizacionActualizada)
+      setDialogoContacto(false)
+      
+      toast({
+        title: "Contacto registrado",
+        description: "El contacto con el cliente ha sido registrado exitosamente",
+      })
+    } catch (error) {
+      console.error('Error al registrar contacto:', error)
+      toast({
+        title: "Error",
+        description: "No se pudo registrar el contacto",
+        variant: "destructive",
+      })
+    } finally {
+      setLoadingAccion(false)
+    }
   }
+
+  const handleCambiarEstado = async (nuevoEstado: string) => {
+    if (!cotizacion) return
+    
+    try {
+      setLoadingAccion(true)
+      await apiService.cambiarEstadoCotizacion(cotizacion.id, nuevoEstado)
+      
+      // Recargar la cotización
+      const cotizacionActualizada = await apiService.getCotizacion(cotizacion.id)
+      setCotizacion(cotizacionActualizada)
+      setEstado(nuevoEstado)
+      
+      toast({
+        title: "Estado actualizado",
+        description: `El estado ha sido cambiado a ${nuevoEstado}`,
+      })
+    } catch (error) {
+      console.error('Error al cambiar estado:', error)
+      toast({
+        title: "Error",
+        description: "No se pudo cambiar el estado",
+        variant: "destructive",
+      })
+    } finally {
+      setLoadingAccion(false)
+    }
+  }
+
+  const handleMarcarComoValidada = async () => {
+    if (!cotizacion) return
+    
+    try {
+      setLoadingAccion(true)
+      await apiService.marcarComoValidada(cotizacion.id)
+      
+      // Recargar la cotización
+      const cotizacionActualizada = await apiService.getCotizacion(cotizacion.id)
+      setCotizacion(cotizacionActualizada)
+      
+      toast({
+        title: "Cotización validada",
+        description: "La cotización ha sido marcada como validada",
+      })
+    } catch (error) {
+      console.error('Error al validar cotización:', error)
+      toast({
+        title: "Error",
+        description: "No se pudo marcar como validada",
+        variant: "destructive",
+      })
+    } finally {
+      setLoadingAccion(false)
+    }
+  }
+
+  // Función para parsear las observaciones y extraer notas internas y contactos
+  const parsearObservaciones = (observaciones: string) => {
+    if (!observaciones) return []
+    
+    const lineas = observaciones.split('\n')
+    const eventos: Array<{
+      fecha: string
+      tipo: string
+      contenido: string
+      icono: React.ReactNode
+    }> = []
+    
+    lineas.forEach(linea => {
+      if (linea.includes('NOTA INTERNA:')) {
+        const match = linea.match(/\[(.*?)\] NOTA INTERNA: (.*)/)
+        if (match) {
+          eventos.push({
+            fecha: match[1],
+            tipo: 'nota',
+            contenido: match[2],
+            icono: <Pencil className="h-5 w-5 text-blue-500" />
+          })
+        }
+      } else if (linea.includes('CONTACTO:')) {
+        const match = linea.match(/\[(.*?)\] CONTACTO: (.*)/)
+        if (match) {
+          eventos.push({
+            fecha: match[1],
+            tipo: 'contacto',
+            contenido: match[2],
+            icono: <Phone className="h-5 w-5 text-green-500" />
+          })
+        }
+      } else if (linea.includes('VALIDADA:')) {
+        const match = linea.match(/\[(.*?)\] VALIDADA: (.*)/)
+        if (match) {
+          eventos.push({
+            fecha: match[1],
+            tipo: 'validacion',
+            contenido: match[2],
+            icono: <Check className="h-5 w-5 text-emerald-500" />
+          })
+        }
+      } else if (linea.includes('Precio actualizado:')) {
+        const match = linea.match(/\[(.*?)\] Precio actualizado: (.*)/)
+        if (match) {
+          eventos.push({
+            fecha: match[1],
+            tipo: 'precio',
+            contenido: match[2],
+            icono: <DollarSign className="h-5 w-5 text-yellow-500" />
+          })
+        }
+      }
+    })
+    
+    return eventos
+  }
+
+  // Abrir modal y cargar datos actuales
+  const handleAbrirEditar = () => {
+    if (!cotizacion) return
+    const item = cotizacion.items[0] || {}
+    setEditForm({
+      nombre: item.nombre || "",
+      dimensiones: item.dimensiones || "",
+      tipo_material: item.tipo_material || "",
+      color_acabado: item.color_acabado || "",
+      herrajes_tipo: item.herrajes_tipo || "",
+      cantidad: item.cantidad || 1,
+      unidad: item.unidad || "unidad",
+      observaciones: cotizacion.observaciones || "",
+    })
+    setModalEditar(true)
+  }
+
+  // Guardar cambios
+  const handleGuardarEdicion = async () => {
+    if (!cotizacion || !editForm) return
+    try {
+      setLoadingAccion(true)
+      // Solo actualizamos el primer item y los campos principales
+      const updateData = {
+        observaciones: editForm.observaciones,
+        items: [
+          {
+            nombre: editForm.nombre,
+            dimensiones: editForm.dimensiones,
+            tipo_material: editForm.tipo_material,
+            color_acabado: editForm.color_acabado,
+            herrajes_tipo: editForm.herrajes_tipo,
+            cantidad: Number(editForm.cantidad) || 1,
+            unidad: editForm.unidad,
+            descripcion: `${editForm.dimensiones} - Material: ${editForm.tipo_material}, Color: ${editForm.color_acabado}, Herrajes: ${editForm.herrajes_tipo}`,
+            precio_unitario: cotizacion.items[0]?.precio_unitario || 0,
+            subtotal: cotizacion.items[0]?.subtotal || 0,
+          }
+        ]
+      }
+      await apiService.actualizarCotizacion(cotizacion.id, updateData)
+      // Recargar cotización
+      const cotizacionActualizada = await apiService.getCotizacion(cotizacion.id)
+      setCotizacion(cotizacionActualizada)
+      setModalEditar(false)
+      toast({ title: "Cotización actualizada", description: "Los datos han sido actualizados." })
+    } catch (error) {
+      toast({ title: "Error", description: "No se pudo actualizar la cotización", variant: "destructive" })
+    } finally {
+      setLoadingAccion(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="flex items-center gap-2">
+          <Loader2 className="h-6 w-6 animate-spin" />
+          <span>Cargando cotización...</span>
+        </div>
+      </div>
+    )
+  }
+
+  if (!cotizacion) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold mb-2">Cotización no encontrada</h2>
+          <p className="text-gray-500 mb-4">La cotización con ID {id} no existe</p>
+          <Link href="/admin/cotizaciones">
+            <Button>Volver a cotizaciones</Button>
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
+  const primerItem = cotizacion.items[0]
+  const fechaFormateada = cotizacion.fecha ? new Date(cotizacion.fecha).toLocaleDateString('es-CL') : 'Sin fecha'
 
   return (
     <div className="min-h-screen flex flex-col">
       <header className="bg-white border-b sticky top-0 z-10">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <div className="flex items-center gap-4">
-            <Link href="/admin" className="text-gray-600 hover:text-emerald-600 flex items-center">
+            <Link href="/admin/cotizaciones" className="text-gray-600 hover:text-emerald-600 flex items-center">
               <ArrowLeft className="mr-2 h-4 w-4" />
               Volver
             </Link>
@@ -118,15 +433,11 @@ export default function DetalleCotizacion() {
           </div>
 
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" className="hidden md:flex items-center">
+            <Button variant="outline" size="sm" className="hidden md:flex items-center" onClick={() => descargarPDFCotizacion(cotizacion.id)}>
               <Download className="mr-2 h-4 w-4" />
               Descargar PDF
             </Button>
-            <Button variant="outline" size="sm" className="hidden md:flex items-center">
-              <Mail className="mr-2 h-4 w-4" />
-              Enviar al Cliente
-            </Button>
-            <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700">
+            <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700" onClick={handleAbrirEditar}>
               <Edit className="mr-2 h-4 w-4" />
               Editar
             </Button>
@@ -142,17 +453,17 @@ export default function DetalleCotizacion() {
               <div className="p-6 flex justify-between items-center flex-wrap gap-4">
                 <div>
                   <div className="flex items-center gap-2">
-                    <h2 className="text-2xl font-bold">Cotización #{id}</h2>
+                    <h2 className="text-2xl font-bold">Cotización #{cotizacion.id}</h2>
                     <Badge variant={getStatusBadgeVariant(estado)}>{getStatusText(estado)}</Badge>
                   </div>
                   <div className="flex items-center gap-4 text-sm text-gray-500 mt-1">
                     <div className="flex items-center gap-1">
                       <Calendar className="h-4 w-4" />
-                      09/05/2023
+                      {fechaFormateada}
                     </div>
                     <div className="flex items-center gap-1">
                       <FileText className="h-4 w-4" />
-                      Closet a Medida
+                      {primerItem?.nombre || "Sin especificar"}
                     </div>
                   </div>
                 </div>
@@ -207,32 +518,32 @@ export default function DetalleCotizacion() {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
                         <div>
                           <h4 className="font-medium text-gray-700">Producto</h4>
-                          <p>Closet a Medida</p>
+                          <p>{primerItem?.nombre || "Sin especificar"}</p>
                         </div>
 
                         <div>
                           <h4 className="font-medium text-gray-700">Material Principal</h4>
-                          <p>Melamina - Nogal</p>
+                          <p>{primerItem?.tipo_material || "Sin especificar"}</p>
                         </div>
 
                         <div>
                           <h4 className="font-medium text-gray-700">Dimensiones</h4>
-                          <p>220 cm (alto) x 120 cm (ancho) x 60 cm (prof.)</p>
+                          <p>{primerItem?.dimensiones || "Sin especificar"}</p>
                         </div>
 
                         <div>
                           <h4 className="font-medium text-gray-700">Herrajes</h4>
-                          <p>Premium con cierre suave</p>
+                          <p>{primerItem?.herrajes_tipo || "Sin especificar"}</p>
                         </div>
 
                         <div>
-                          <h4 className="font-medium text-gray-700">Puertas y Cajones</h4>
-                          <p>2 puertas, 3 cajones, 4 repisas</p>
+                          <h4 className="font-medium text-gray-700">Color/Acabado</h4>
+                          <p>{primerItem?.color_acabado || "Sin especificar"}</p>
                         </div>
 
                         <div>
-                          <h4 className="font-medium text-gray-700">Acabado</h4>
-                          <p>Color nogal, tirador oculto</p>
+                          <h4 className="font-medium text-gray-700">Cantidad</h4>
+                          <p>{primerItem?.cantidad} {primerItem?.unidad}</p>
                         </div>
                       </div>
                     </div>
@@ -244,34 +555,34 @@ export default function DetalleCotizacion() {
 
                       <div className="space-y-3">
                         <div className="flex justify-between">
-                          <p className="text-gray-600">Costo base de Closet</p>
-                          <p>$950.000</p>
+                          <p className="text-gray-600">Costo base</p>
+                          <p>${primerItem?.costo_base?.toLocaleString("es-CL") || "0"}</p>
                         </div>
                         <div className="flex justify-between">
-                          <p className="text-gray-600">Material (Melamina Nogal)</p>
-                          <p>$380.000</p>
+                          <p className="text-gray-600">Material ({primerItem?.tipo_material})</p>
+                          <p>${primerItem?.costo_material?.toLocaleString("es-CL") || "0"}</p>
                         </div>
                         <div className="flex justify-between">
-                          <p className="text-gray-600">Herrajes premium</p>
-                          <p>$180.000</p>
+                          <p className="text-gray-600">Herrajes {primerItem?.herrajes_tipo}</p>
+                          <p>${primerItem?.costo_herrajes?.toLocaleString("es-CL") || "0"}</p>
                         </div>
                         <div className="flex justify-between">
                           <p className="text-gray-600">Instalación</p>
-                          <p>$80.000</p>
+                          <p>${primerItem?.costo_instalacion?.toLocaleString("es-CL") || "0"}</p>
                         </div>
                         <Separator />
                         <div className="flex justify-between">
                           <p className="font-medium">Subtotal</p>
-                          <p>$1.590.000</p>
+                          <p>${primerItem?.subtotal?.toLocaleString("es-CL") || "0"}</p>
                         </div>
                         <div className="flex justify-between">
                           <p className="text-gray-600">IVA (19%)</p>
-                          <p>$300.000</p>
+                          <p>${primerItem?.iva?.toLocaleString("es-CL") || "0"}</p>
                         </div>
                         <Separator />
                         <div className="flex justify-between font-semibold">
                           <p>Total</p>
-                          <p>${precioModificado.toLocaleString("es-CL")}</p>
+                          <p>${cotizacion.total.toLocaleString("es-CL")}</p>
                         </div>
                       </div>
                     </div>
@@ -281,10 +592,7 @@ export default function DetalleCotizacion() {
                     <div>
                       <h3 className="font-medium text-lg mb-4">Observaciones del Cliente</h3>
                       <p className="text-gray-600">
-                        Necesito que el closet tenga un espacio específico para colgar trajes largos en el lado
-                        izquierdo. También quisiera incluir un organizador de zapatos en la parte inferior derecha.
-                        Prefiero que los cajones tengan divisores internos. Si es posible, me gustaría que las puertas
-                        tuvieran espejos por dentro.
+                        {cotizacion.observaciones || "Sin observaciones adicionales"}
                       </p>
                     </div>
                   </div>
@@ -300,7 +608,7 @@ export default function DetalleCotizacion() {
                           <User className="h-5 w-5 text-gray-400 mt-0.5" />
                           <div>
                             <h4 className="font-medium text-gray-700">Nombre</h4>
-                            <p>María Rodríguez</p>
+                            <p>{cotizacion.cliente?.nombre} {cotizacion.cliente?.apellido}</p>
                           </div>
                         </div>
 
@@ -308,7 +616,7 @@ export default function DetalleCotizacion() {
                           <Mail className="h-5 w-5 text-gray-400 mt-0.5" />
                           <div>
                             <h4 className="font-medium text-gray-700">Correo Electrónico</h4>
-                            <p>maria.rodriguez@ejemplo.com</p>
+                            <p>{cotizacion.cliente?.email}</p>
                           </div>
                         </div>
 
@@ -316,7 +624,7 @@ export default function DetalleCotizacion() {
                           <Phone className="h-5 w-5 text-gray-400 mt-0.5" />
                           <div>
                             <h4 className="font-medium text-gray-700">Teléfono</h4>
-                            <p>+56 9 8765 4321</p>
+                            <p>{cotizacion.cliente?.telefono}</p>
                           </div>
                         </div>
 
@@ -324,7 +632,7 @@ export default function DetalleCotizacion() {
                           <MapPin className="h-5 w-5 text-gray-400 mt-0.5" />
                           <div>
                             <h4 className="font-medium text-gray-700">Dirección</h4>
-                            <p>Av. Principal 123, Las Condes, Santiago</p>
+                            <p>{cotizacion.cliente?.direccion}</p>
                           </div>
                         </div>
                       </div>
@@ -334,31 +642,9 @@ export default function DetalleCotizacion() {
 
                     <div>
                       <h3 className="font-medium text-lg mb-4">Historial de Cliente</h3>
-
-                      <div className="space-y-4">
-                        <div className="bg-gray-50 rounded p-4 border">
-                          <div className="flex justify-between mb-2">
-                            <h4 className="font-medium">Cotización #489270</h4>
-                            <Badge variant="outline">Aprobado</Badge>
-                          </div>
-                          <div className="flex gap-4 text-sm">
-                            <div className="text-gray-600">12/03/2023</div>
-                            <div>Escritorio a Medida</div>
-                            <div className="font-medium">$650.000</div>
-                          </div>
-                        </div>
-
-                        <div className="bg-gray-50 rounded p-4 border">
-                          <div className="flex justify-between mb-2">
-                            <h4 className="font-medium">Cotización #489152</h4>
-                            <Badge variant="outline">Aprobado</Badge>
-                          </div>
-                          <div className="flex gap-4 text-sm">
-                            <div className="text-gray-600">24/01/2023</div>
-                            <div>Estantería para Libros</div>
-                            <div className="font-medium">$780.000</div>
-                          </div>
-                        </div>
+                      <div className="text-center py-8 text-gray-500">
+                        <Package className="h-12 w-12 mx-auto mb-2 text-gray-300" />
+                        <p>No hay historial disponible para este cliente</p>
                       </div>
                     </div>
                   </div>
@@ -367,33 +653,22 @@ export default function DetalleCotizacion() {
                 <TabsContent value="historial" className="p-6 pt-4">
                   <div className="grid gap-8">
                     <div className="space-y-6">
+                      {/* Eventos del sistema */}
                       {[
                         {
-                          fecha: "09/05/2023 16:45",
+                          fecha: new Date(cotizacion.created_at).toLocaleString('es-CL'),
                           usuario: "Sistema",
-                          accion: "Cotización generada automáticamente",
+                          accion: "Cotización creada",
                           icono: <Package className="h-5 w-5 text-gray-400" />,
                         },
-                        {
-                          fecha: "09/05/2023 17:32",
-                          usuario: "Admin",
-                          accion: "Cotización revisada y validada",
-                          icono: <Eye className="h-5 w-5 text-emerald-500" />,
-                        },
-                        {
-                          fecha: "10/05/2023 09:15",
-                          usuario: "Admin",
-                          accion: "Se ajustó el precio de $1.950.000 a $1.890.000",
+                        ...(cotizacion.updated_at ? [{
+                          fecha: new Date(cotizacion.updated_at).toLocaleString('es-CL'),
+                          usuario: "Sistema",
+                          accion: "Cotización actualizada",
                           icono: <Edit className="h-5 w-5 text-blue-500" />,
-                        },
-                        {
-                          fecha: "10/05/2023 09:20",
-                          usuario: "Admin",
-                          accion: "Se agregó nota interna sobre disponibilidad de material",
-                          icono: <FileText className="h-5 w-5 text-orange-500" />,
-                        },
+                        }] : []),
                       ].map((item, index) => (
-                        <div key={index} className="flex gap-4">
+                        <div key={`sistema-${index}`} className="flex gap-4">
                           {item.icono}
                           <div>
                             <div className="flex gap-2 items-center font-medium">
@@ -405,6 +680,28 @@ export default function DetalleCotizacion() {
                           </div>
                         </div>
                       ))}
+
+                      {/* Eventos parseados de las observaciones */}
+                      {parsearObservaciones(cotizacion.observaciones || "").map((evento, index) => (
+                        <div key={`evento-${index}`} className="flex gap-4">
+                          {evento.icono}
+                          <div>
+                            <div className="flex gap-2 items-center font-medium">
+                              <span>Admin</span>
+                              <span className="text-gray-400 text-sm">•</span>
+                              <span className="text-gray-500 text-sm">{evento.fecha}</span>
+                            </div>
+                            <p className="text-gray-600">{evento.contenido}</p>
+                          </div>
+                        </div>
+                      ))}
+
+                      {parsearObservaciones(cotizacion.observaciones || "").length === 0 && (
+                        <div className="text-center py-8 text-gray-500">
+                          <Package className="h-12 w-12 mx-auto mb-2 text-gray-300" />
+                          <p>No hay eventos adicionales registrados</p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </TabsContent>
@@ -419,7 +716,7 @@ export default function DetalleCotizacion() {
                 <CardTitle>Acciones</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <Select value={estado} onValueChange={setEstado}>
+                <Select value={estado} onValueChange={handleCambiarEstado}>
                   <SelectTrigger>
                     <SelectValue placeholder="Cambiar estado" />
                   </SelectTrigger>
@@ -431,25 +728,17 @@ export default function DetalleCotizacion() {
                   </SelectContent>
                 </Select>
 
-                <div className="grid grid-cols-2 gap-2">
-                  <Button onClick={() => setDialogoContacto(true)}>
+                <div className="grid grid-cols-1 gap-2">
+                  <Button onClick={() => setDialogoContacto(true)} disabled={loadingAccion}>
                     <Phone className="mr-2 h-4 w-4" />
                     Contactar
                   </Button>
-                  <Button variant="outline">
-                    <Mail className="mr-2 h-4 w-4" />
-                    Enviar Email
-                  </Button>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2">
-                  <Button variant="outline">
+                <div className="grid grid-cols-1 gap-2">
+                  <Button variant="outline" disabled={loadingAccion} onClick={() => descargarPDFCotizacion(cotizacion.id)}>
                     <Download className="mr-2 h-4 w-4" />
                     PDF
-                  </Button>
-                  <Button variant="outline">
-                    <Edit className="mr-2 h-4 w-4" />
-                    Editar
                   </Button>
                 </div>
               </CardContent>
@@ -462,15 +751,27 @@ export default function DetalleCotizacion() {
               <CardContent>
                 <form onSubmit={handleSubmitNota}>
                   <div className="space-y-4">
-                    <div className="border rounded-md p-4 bg-gray-50">
-                      <div className="flex justify-between items-start">
-                        <div className="font-medium">Admin</div>
-                        <div className="text-xs text-gray-500">10/05/2023 09:20</div>
-                      </div>
-                      <p className="text-sm mt-1 text-gray-600">
-                        Verificar disponibilidad de melamina en nogal. Hay posible retraso de 5 días en stock.
-                      </p>
-                    </div>
+                    {/* Mostrar notas existentes */}
+                    {parsearObservaciones(cotizacion.observaciones || "")
+                      .filter(evento => evento.tipo === 'nota')
+                      .map((nota, index) => (
+                        <div key={`nota-${index}`} className="border rounded-md p-4 bg-gray-50">
+                          <div className="flex justify-between items-start">
+                            <div className="font-medium">Admin</div>
+                            <div className="text-xs text-gray-500">{nota.fecha}</div>
+                          </div>
+                          <p className="text-sm mt-1 text-gray-600">
+                            {nota.contenido}
+                          </p>
+                        </div>
+                      ))}
+
+                    {parsearObservaciones(cotizacion.observaciones || "")
+                      .filter(evento => evento.tipo === 'nota').length === 0 && (
+                        <div className="text-center py-4 text-gray-500 text-sm">
+                          No hay notas internas registradas
+                        </div>
+                      )}
 
                     <div className="space-y-2">
                       <Textarea
@@ -481,9 +782,16 @@ export default function DetalleCotizacion() {
                       <Button
                         type="submit"
                         className="w-full bg-emerald-600 hover:bg-emerald-700"
-                        disabled={!notaInterna.trim()}
+                        disabled={!notaInterna.trim() || loadingAccion}
                       >
-                        Guardar Nota
+                        {loadingAccion ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Guardando...
+                          </>
+                        ) : (
+                          "Guardar Nota"
+                        )}
                       </Button>
                     </div>
                   </div>
@@ -515,7 +823,20 @@ export default function DetalleCotizacion() {
                   </div>
                 </div>
 
-                <Button className="w-full">Marcar como Validado</Button>
+                <Button 
+                  className="w-full" 
+                  onClick={handleMarcarComoValidada}
+                  disabled={loadingAccion}
+                >
+                  {loadingAccion ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Validando...
+                    </>
+                  ) : (
+                    "Marcar como Validado"
+                  )}
+                </Button>
               </CardContent>
             </Card>
           </div>
@@ -532,7 +853,10 @@ export default function DetalleCotizacion() {
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="metodo-contacto">Método de contacto</Label>
-              <Select defaultValue="telefono">
+              <Select 
+                value={datosContacto.metodo} 
+                onValueChange={(value) => setDatosContacto(prev => ({ ...prev, metodo: value }))}
+              >
                 <SelectTrigger id="metodo-contacto">
                   <SelectValue placeholder="Seleccionar método" />
                 </SelectTrigger>
@@ -547,7 +871,10 @@ export default function DetalleCotizacion() {
 
             <div className="space-y-2">
               <Label htmlFor="resultado-contacto">Resultado</Label>
-              <Select defaultValue="interesado">
+              <Select 
+                value={datosContacto.resultado}
+                onValueChange={(value) => setDatosContacto(prev => ({ ...prev, resultado: value }))}
+              >
                 <SelectTrigger id="resultado-contacto">
                   <SelectValue placeholder="Seleccionar resultado" />
                 </SelectTrigger>
@@ -567,15 +894,80 @@ export default function DetalleCotizacion() {
                 id="notas-contacto"
                 placeholder="Detalles de la conversación, acuerdos, siguientes pasos..."
                 rows={4}
+                value={datosContacto.notas}
+                onChange={(e) => setDatosContacto(prev => ({ ...prev, notas: e.target.value }))}
               />
             </div>
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogoContacto(false)}>
+            <Button variant="outline" onClick={() => setDialogoContacto(false)} disabled={loadingAccion}>
               Cancelar
             </Button>
-            <Button onClick={handleContactarCliente}>Registrar Contacto</Button>
+            <Button onClick={handleContactarCliente} disabled={loadingAccion}>
+              {loadingAccion ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Registrando...
+                </>
+              ) : (
+                "Registrar Contacto"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de edición */}
+      <Dialog open={modalEditar} onOpenChange={setModalEditar}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar Cotización</DialogTitle>
+            <DialogDescription>Modifica los datos principales de la cotización.</DialogDescription>
+          </DialogHeader>
+          {editForm && (
+            <div className="space-y-4 py-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label>Producto</Label>
+                  <Input value={editForm.nombre} onChange={e => setEditForm((f: any) => ({ ...f, nombre: e.target.value }))} />
+                </div>
+                <div>
+                  <Label>Dimensiones</Label>
+                  <Input value={editForm.dimensiones} onChange={e => setEditForm((f: any) => ({ ...f, dimensiones: e.target.value }))} />
+                </div>
+                <div>
+                  <Label>Material</Label>
+                  <Input value={editForm.tipo_material} onChange={e => setEditForm((f: any) => ({ ...f, tipo_material: e.target.value }))} />
+                </div>
+                <div>
+                  <Label>Color/Acabado</Label>
+                  <Input value={editForm.color_acabado} onChange={e => setEditForm((f: any) => ({ ...f, color_acabado: e.target.value }))} />
+                </div>
+                <div>
+                  <Label>Herrajes</Label>
+                  <Input value={editForm.herrajes_tipo} onChange={e => setEditForm((f: any) => ({ ...f, herrajes_tipo: e.target.value }))} />
+                </div>
+                <div>
+                  <Label>Cantidad</Label>
+                  <Input type="number" value={editForm.cantidad} onChange={e => setEditForm((f: any) => ({ ...f, cantidad: e.target.value }))} />
+                </div>
+                <div>
+                  <Label>Unidad</Label>
+                  <Input value={editForm.unidad} onChange={e => setEditForm((f: any) => ({ ...f, unidad: e.target.value }))} />
+                </div>
+              </div>
+              <div>
+                <Label>Observaciones</Label>
+                <Textarea value={editForm.observaciones} onChange={e => setEditForm((f: any) => ({ ...f, observaciones: e.target.value }))} />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setModalEditar(false)} disabled={loadingAccion}>Cancelar</Button>
+            <Button onClick={handleGuardarEdicion} disabled={loadingAccion}>
+              {loadingAccion ? "Guardando..." : "Guardar Cambios"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

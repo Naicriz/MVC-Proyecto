@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import {
   Search,
   Filter,
@@ -20,7 +20,13 @@ import {
   Edit,
   Trash2,
   Calendar,
+  Loader2,
 } from "lucide-react"
+
+import { AuthGuard } from "@/components/auth-guard"
+import { useAuth } from "@/hooks/use-auth"
+import { useCotizaciones, descargarPDFCotizacion } from "@/hooks/use-api"
+import { useToast } from "@/hooks/use-toast"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -35,103 +41,41 @@ export default function CotizacionesPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("todos")
   const [selectedCotizaciones, setSelectedCotizaciones] = useState<number[]>([])
+  const { user, logout } = useAuth()
+  const { cotizaciones, loading, error, fetchCotizaciones } = useCotizaciones()
+  const { toast } = useToast()
 
-  // Datos de ejemplo expandidos
-  const cotizaciones = [
-    {
-      id: 489302,
-      fecha: "10/05/2023",
-      cliente: "Juan Pérez",
-      email: "juan.perez@email.com",
-      telefono: "+56 9 1234 5678",
-      articulo: "Cocina Personalizada",
-      valor: 2450000,
-      estado: "nuevo",
-      prioridad: "alta",
-      fechaVencimiento: "25/05/2023",
-    },
-    {
-      id: 489301,
-      fecha: "09/05/2023",
-      cliente: "María Rodríguez",
-      email: "maria.rodriguez@email.com",
-      telefono: "+56 9 8765 4321",
-      articulo: "Closet a Medida",
-      valor: 1890000,
-      estado: "revisado",
-      prioridad: "media",
-      fechaVencimiento: "24/05/2023",
-    },
-    {
-      id: 489300,
-      fecha: "08/05/2023",
-      cliente: "Carlos Soto",
-      email: "carlos.soto@email.com",
-      telefono: "+56 9 5555 1234",
-      articulo: "Estantería",
-      valor: 780000,
-      estado: "contactado",
-      prioridad: "baja",
-      fechaVencimiento: "23/05/2023",
-    },
-    {
-      id: 489299,
-      fecha: "07/05/2023",
-      cliente: "Ana Martínez",
-      email: "ana.martinez@email.com",
-      telefono: "+56 9 9999 8888",
-      articulo: "Vanitorios",
-      valor: 1250000,
-      estado: "aprobado",
-      prioridad: "alta",
-      fechaVencimiento: "22/05/2023",
-    },
-    {
-      id: 489298,
-      fecha: "07/05/2023",
-      cliente: "Pedro González",
-      email: "pedro.gonzalez@email.com",
-      telefono: "+56 9 7777 6666",
-      articulo: "Escritorio",
-      valor: 650000,
-      estado: "nuevo",
-      prioridad: "media",
-      fechaVencimiento: "22/05/2023",
-    },
-    {
-      id: 489297,
-      fecha: "06/05/2023",
-      cliente: "Laura Díaz",
-      email: "laura.diaz@email.com",
-      telefono: "+56 9 3333 2222",
-      articulo: "Baño Completo",
-      valor: 3250000,
-      estado: "contactado",
-      prioridad: "alta",
-      fechaVencimiento: "21/05/2023",
-    },
-    {
-      id: 489296,
-      fecha: "05/05/2023",
-      cliente: "Fernando Vega",
-      email: "fernando.vega@email.com",
-      telefono: "+56 9 1111 0000",
-      articulo: "Obras Menores",
-      valor: 1850000,
-      estado: "revisado",
-      prioridad: "media",
-      fechaVencimiento: "20/05/2023",
-    },
-  ]
+  // Cargar cotizaciones al montar el componente
+  useEffect(() => {
+    fetchCotizaciones()
+  }, [fetchCotizaciones])
+
+  // Mostrar error si ocurre
+  useEffect(() => {
+    if (error) {
+      toast({
+        title: "Error",
+        description: error,
+        variant: "destructive",
+      })
+    }
+  }, [error, toast])
 
   const filteredCotizaciones = cotizaciones.filter((cotizacion) => {
+    // Filtro por término de búsqueda
     const matchesSearch =
       searchTerm === "" ||
-      cotizacion.cliente.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (cotizacion.cliente?.nombre && cotizacion.cliente.nombre.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (cotizacion.cliente?.apellido && cotizacion.cliente.apellido.toLowerCase().includes(searchTerm.toLowerCase())) ||
       cotizacion.id.toString().includes(searchTerm) ||
-      cotizacion.articulo.toLowerCase().includes(searchTerm.toLowerCase())
+      (cotizacion.items[0]?.nombre && cotizacion.items[0].nombre.toLowerCase().includes(searchTerm.toLowerCase()))
 
-    const matchesStatus = statusFilter === "todos" || cotizacion.estado === statusFilter
+    // Filtro por estado (usando observaciones como estado temporal)
+    const estado = cotizacion.observaciones?.includes("nuevo") ? "nuevo" : 
+                   cotizacion.observaciones?.includes("revisado") ? "revisado" : 
+                   cotizacion.observaciones?.includes("contactado") ? "contactado" : 
+                   cotizacion.observaciones?.includes("aprobado") ? "aprobado" : "nuevo"
+    const matchesStatus = statusFilter === "todos" || estado === statusFilter
 
     return matchesSearch && matchesStatus
   })
@@ -143,22 +87,9 @@ export default function CotizacionesPage() {
       case "revisado":
         return "secondary"
       case "contactado":
-        return "warning"
-      case "aprobado":
-        return "success"
-      default:
-        return "outline"
-    }
-  }
-
-  const getPriorityBadgeVariant = (prioridad: string) => {
-    switch (prioridad) {
-      case "alta":
         return "destructive"
-      case "media":
-        return "warning"
-      case "baja":
-        return "secondary"
+      case "aprobado":
+        return "default"
       default:
         return "outline"
     }
@@ -179,19 +110,6 @@ export default function CotizacionesPage() {
     }
   }
 
-  const getPriorityText = (prioridad: string) => {
-    switch (prioridad) {
-      case "alta":
-        return "Alta"
-      case "media":
-        return "Media"
-      case "baja":
-        return "Baja"
-      default:
-        return prioridad
-    }
-  }
-
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
       setSelectedCotizaciones(filteredCotizaciones.map((c) => c.id))
@@ -208,10 +126,24 @@ export default function CotizacionesPage() {
     }
   }
 
-  const totalValor = filteredCotizaciones.reduce((sum, cotizacion) => sum + cotizacion.valor, 0)
+  const totalValor = filteredCotizaciones.reduce((sum, cotizacion) => sum + cotizacion.total, 0)
+
+  if (loading) {
+    return (
+      <AuthGuard>
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="flex items-center gap-2">
+            <Loader2 className="h-6 w-6 animate-spin" />
+            <span>Cargando cotizaciones...</span>
+          </div>
+        </div>
+      </AuthGuard>
+    )
+  }
 
   return (
-    <div className="min-h-screen flex">
+    <AuthGuard>
+      <div className="min-h-screen flex">
       {/* Sidebar */}
       <aside className="w-64 bg-gray-900 text-white hidden md:flex flex-col">
         <div className="p-4 border-b border-gray-800">
@@ -252,20 +184,15 @@ export default function CotizacionesPage() {
                 Clientes
               </Link>
             </li>
-            <li>
-              <Link
-                href="/admin/reportes"
-                className="flex items-center gap-3 px-4 py-3 rounded-md text-gray-300 hover:bg-gray-800 transition-colors"
-              >
-                <BarChart className="h-5 w-5" />
-                Reportes
-              </Link>
-            </li>
           </ul>
         </nav>
 
         <div className="p-4 border-t border-gray-800">
-          <Button variant="ghost" className="w-full justify-start text-gray-300 hover:text-white">
+          <Button 
+            variant="ghost" 
+            className="w-full justify-start text-gray-300 hover:text-white"
+            onClick={logout}
+          >
             <LogOut className="mr-2 h-5 w-5" />
             Cerrar sesión
           </Button>
@@ -285,10 +212,6 @@ export default function CotizacionesPage() {
             </div>
 
             <div className="flex items-center ml-auto gap-4">
-              <Button className="bg-emerald-600 hover:bg-emerald-700">
-                <Plus className="mr-2 h-4 w-4" />
-                Nueva Cotización
-              </Button>
               <button className="p-2 text-gray-500 hover:text-gray-700">
                 <Bell className="h-5 w-5" />
               </button>
@@ -296,15 +219,16 @@ export default function CotizacionesPage() {
                 <DropdownMenuTrigger asChild>
                   <button className="flex items-center gap-2 ml-4 rounded-full bg-gray-100 p-1 pr-4">
                     <div className="h-8 w-8 rounded-full bg-emerald-200 flex items-center justify-center text-emerald-700 font-medium">
-                      AD
+                      {user ? `${user.nombre[0]}${user.apellido[0]}` : 'AD'}
                     </div>
-                    <span className="text-sm font-medium">Admin</span>
+                    <span className="text-sm font-medium">
+                      {user ? `${user.nombre} ${user.apellido}` : 'Admin'}
+                    </span>
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem>Perfil</DropdownMenuItem>
-                  <DropdownMenuItem>Configuración</DropdownMenuItem>
-                  <DropdownMenuItem>Cerrar sesión</DropdownMenuItem>
+                  <DropdownMenuItem onClick={logout}>Cerrar sesión</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
@@ -320,10 +244,6 @@ export default function CotizacionesPage() {
                 <Button variant="outline">
                   <Download className="mr-2 h-4 w-4" />
                   Exportar
-                </Button>
-                <Button variant="outline">
-                  <Mail className="mr-2 h-4 w-4" />
-                  Envío Masivo
                 </Button>
               </div>
             </div>
@@ -356,7 +276,13 @@ export default function CotizacionesPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-3xl font-bold">
-                    {filteredCotizaciones.filter((c) => c.estado === "nuevo" || c.estado === "revisado").length}
+                    {filteredCotizaciones.filter((c) => {
+                      const estado = c.observaciones?.includes("nuevo") ? "nuevo" : 
+                                     c.observaciones?.includes("revisado") ? "revisado" : 
+                                     c.observaciones?.includes("contactado") ? "contactado" : 
+                                     c.observaciones?.includes("aprobado") ? "aprobado" : "nuevo"
+                      return estado === "nuevo" || estado === "revisado"
+                    }).length}
                   </div>
                   <p className="text-xs text-gray-500 mt-1">Requieren atención</p>
                 </CardContent>
@@ -368,7 +294,13 @@ export default function CotizacionesPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-3xl font-bold">
-                    {filteredCotizaciones.filter((c) => c.estado === "aprobado").length}
+                    {filteredCotizaciones.filter((c) => {
+                      const estado = c.observaciones?.includes("nuevo") ? "nuevo" : 
+                                     c.observaciones?.includes("revisado") ? "revisado" : 
+                                     c.observaciones?.includes("contactado") ? "contactado" : 
+                                     c.observaciones?.includes("aprobado") ? "aprobado" : "nuevo"
+                      return estado === "aprobado"
+                    }).length}
                   </div>
                   <p className="text-xs text-gray-500 mt-1">Listas para procesar</p>
                 </CardContent>
@@ -402,18 +334,6 @@ export default function CotizacionesPage() {
                       <SelectItem value="revisado">Revisados</SelectItem>
                       <SelectItem value="contactado">Contactados</SelectItem>
                       <SelectItem value="aprobado">Aprobados</SelectItem>
-                    </SelectContent>
-                  </Select>
-
-                  <Select defaultValue="todos">
-                    <SelectTrigger className="w-[150px]">
-                      <SelectValue placeholder="Prioridad" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="todos">Todas</SelectItem>
-                      <SelectItem value="alta">Alta</SelectItem>
-                      <SelectItem value="media">Media</SelectItem>
-                      <SelectItem value="baja">Baja</SelectItem>
                     </SelectContent>
                   </Select>
 
@@ -465,87 +385,88 @@ export default function CotizacionesPage() {
                     <TableHead>Artículo</TableHead>
                     <TableHead className="text-right">Valor</TableHead>
                     <TableHead>Estado</TableHead>
-                    <TableHead>Prioridad</TableHead>
                     <TableHead>Fecha</TableHead>
-                    <TableHead>Vence</TableHead>
                     <TableHead className="w-[70px]"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredCotizaciones.map((cotizacion) => (
-                    <TableRow key={cotizacion.id}>
-                      <TableCell>
-                        <Checkbox
-                          checked={selectedCotizaciones.includes(cotizacion.id)}
-                          onCheckedChange={(checked) => handleSelectCotizacion(cotizacion.id, checked as boolean)}
-                        />
-                      </TableCell>
-                      <TableCell className="font-medium">{cotizacion.id}</TableCell>
-                      <TableCell>
-                        <div>
-                          <div className="font-medium">{cotizacion.cliente}</div>
-                          <div className="text-sm text-gray-500">{cotizacion.email}</div>
-                        </div>
-                      </TableCell>
-                      <TableCell>{cotizacion.articulo}</TableCell>
-                      <TableCell className="text-right font-medium">
-                        ${cotizacion.valor.toLocaleString("es-CL")}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={getStatusBadgeVariant(cotizacion.estado)}>
-                          {getStatusText(cotizacion.estado)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={getPriorityBadgeVariant(cotizacion.prioridad)}>
-                          {getPriorityText(cotizacion.prioridad)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{cotizacion.fecha}</TableCell>
-                      <TableCell>
-                        <span className="text-sm text-gray-500">{cotizacion.fechaVencimiento}</span>
-                      </TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem>
-                              <Link href={`/admin/cotizaciones/${cotizacion.id}`} className="w-full flex items-center">
-                                <Eye className="mr-2 h-4 w-4" />
-                                Ver detalle
-                              </Link>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem>
-                              <Edit className="mr-2 h-4 w-4" />
-                              Editar
-                            </DropdownMenuItem>
-                            <DropdownMenuItem>
-                              <Download className="mr-2 h-4 w-4" />
-                              Descargar PDF
-                            </DropdownMenuItem>
-                            <DropdownMenuItem>
-                              <Mail className="mr-2 h-4 w-4" />
-                              Enviar Email
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="text-red-600">
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Eliminar
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {filteredCotizaciones.map((cotizacion) => {
+                    const estado = cotizacion.observaciones?.includes("nuevo") ? "nuevo" : 
+                                   cotizacion.observaciones?.includes("revisado") ? "revisado" : 
+                                   cotizacion.observaciones?.includes("contactado") ? "contactado" : 
+                                   cotizacion.observaciones?.includes("aprobado") ? "aprobado" : "nuevo"
+                    
+                    return (
+                      <TableRow key={cotizacion.id}>
+                        <TableCell>
+                          <Checkbox
+                            checked={selectedCotizaciones.includes(cotizacion.id)}
+                            onCheckedChange={(checked) => handleSelectCotizacion(cotizacion.id, checked as boolean)}
+                          />
+                        </TableCell>
+                        <TableCell className="font-medium">{cotizacion.id}</TableCell>
+                        <TableCell>
+                          <div>
+                            <div className="font-medium">
+                              {cotizacion.cliente ? `${cotizacion.cliente.nombre} ${cotizacion.cliente.apellido}` : "N/A"}
+                            </div>
+                            <div className="text-sm text-gray-500">{cotizacion.cliente?.email || "N/A"}</div>
+                          </div>
+                        </TableCell>
+                        <TableCell>{cotizacion.items[0]?.nombre || "N/A"}</TableCell>
+                        <TableCell className="text-right font-medium">
+                          ${cotizacion.total.toLocaleString("es-CL")}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={getStatusBadgeVariant(estado)}>
+                            {getStatusText(estado)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {cotizacion.fecha ? new Date(cotizacion.fecha).toLocaleDateString('es-CL') : "N/A"}
+                        </TableCell>
+                        <TableCell>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem>
+                                <Link href={`/admin/cotizaciones/${cotizacion.id}`} className="w-full flex items-center">
+                                  <Eye className="mr-2 h-4 w-4" />
+                                  Ver detalle
+                                </Link>
+                              </DropdownMenuItem>
+                              <DropdownMenuItem>
+                                <Edit className="mr-2 h-4 w-4" />
+                                Editar
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => descargarPDFCotizacion(cotizacion.id)}>
+                                <Download className="mr-2 h-4 w-4" />
+                                Descargar PDF
+                              </DropdownMenuItem>
+                              <DropdownMenuItem>
+                                <Mail className="mr-2 h-4 w-4" />
+                                Enviar Email
+                              </DropdownMenuItem>
+                              <DropdownMenuItem className="text-red-600">
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Eliminar
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
                 </TableBody>
               </Table>
 
               {filteredCotizaciones.length === 0 && (
                 <div className="py-8 text-center text-gray-500">
-                  No se encontraron cotizaciones que coincidan con los filtros.
+                  {loading ? "Cargando cotizaciones..." : "No se encontraron cotizaciones que coincidan con los filtros."}
                 </div>
               )}
             </div>
@@ -574,5 +495,6 @@ export default function CotizacionesPage() {
         </main>
       </div>
     </div>
+    </AuthGuard>
   )
 }

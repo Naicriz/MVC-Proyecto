@@ -52,7 +52,7 @@ def register(usuario: UsuarioCreate, db: Session = Depends(get_db)):
 
 @router.post("/login", response_model=Token)
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    """Iniciar sesión"""
+    """Iniciar sesión con form data (para OAuth2)"""
     # Verificar usuario
     usuario = UsuarioService.get_usuario_by_email(db, email=form_data.username)
     if not usuario or not verify_password(form_data.password, usuario.hashed_password):
@@ -62,13 +62,66 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
             headers={"WWW-Authenticate": "Bearer"},
         )
     
+    # Verificar que sea admin
+    if not usuario.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Acceso denegado. Se requieren permisos de administrador",
+        )
+    
     # Crear token
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
         data={"sub": usuario.email}, expires_delta=access_token_expires
     )
     
-    return {"access_token": access_token, "token_type": "bearer"}
+    return {
+        "access_token": access_token, 
+        "token_type": "bearer",
+        "user": {
+            "id": usuario.id,
+            "email": usuario.email,
+            "nombre": usuario.nombre,
+            "apellido": usuario.apellido,
+            "is_admin": usuario.is_admin
+        }
+    }
+
+@router.post("/login-json", response_model=Token)
+def login_json(login_data: LoginRequest, db: Session = Depends(get_db)):
+    """Iniciar sesión con JSON"""
+    # Verificar usuario
+    usuario = UsuarioService.get_usuario_by_email(db, email=login_data.email)
+    if not usuario or not verify_password(login_data.password, usuario.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Email o contraseña incorrectos",
+        )
+    
+    # Verificar que sea admin
+    if not usuario.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Acceso denegado. Se requieren permisos de administrador",
+        )
+    
+    # Crear token
+    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": usuario.email}, expires_delta=access_token_expires
+    )
+    
+    return {
+        "access_token": access_token, 
+        "token_type": "bearer",
+        "user": {
+            "id": usuario.id,
+            "email": usuario.email,
+            "nombre": usuario.nombre,
+            "apellido": usuario.apellido,
+            "is_admin": usuario.is_admin
+        }
+    }
 
 @router.get("/me", response_model=UsuarioResponse)
 def get_current_user_info(current_user = Depends(get_current_user)):
